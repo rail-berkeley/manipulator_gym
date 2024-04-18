@@ -1,0 +1,220 @@
+import numpy as np
+import time
+from typing import Optional
+from manipulator_gym.utils.kinematics import KinematicsSolver
+
+import os
+import pybullet as p
+import pybullet_data
+
+class WidowXSimInterface:
+    """
+    Defines the base abstract class of WidowX Sim interface. This class
+    is used for the gym env to interact with the Widowx sim env.
+    """
+
+    def __init__(
+        self,
+        default_pose=np.array([0.2, 0.0, 0.15, 0.0, 1.57, 0.0, 1]),
+        image_size=(480, 640),
+    ):
+        """
+        Define the environment
+        : args default_pose: 7-dimensional vector of
+                            [x, y, z, roll, pitch, yaw, gripper_state]
+        : args im_size: image size
+        """
+        assert len(default_pose) == 7
+        self.image_size = image_size
+        self.default_pose = default_pose
+        # Initialize PyBullet, and hide side panel but still show obs
+        self.client = p.connect(p.GUI)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 1)
+        p.setAdditionalSearchPath(pybullet_data.getDataPath())
+        self.table = p.loadURDF("table/table.urdf", 0.5, 0.0, -0.63, 0.0, 0.0, 0.0, 1.0)
+
+        # TODO: use the correct path to the asset
+        asset_path = os.path.dirname(os.path.realpath(__file__)) + "/../utils/assets"
+
+        # NOTE: Original URDF is from
+        # https://github.com/avisingh599/roboverse/tree/master/roboverse/assets/interbotix_descriptions
+        urdf_path = asset_path + "/widowx/urdf/wx250.urdf"
+        eef_link = "/ee_gripper_link"
+        self.arm = p.loadURDF(urdf_path, useFixedBase=True)
+
+        for id in [9, 10, 11]:
+            p.changeDynamics(self.arm, id, lateralFriction=100)
+
+        # NOTE: users can add more objects to the scene by impl p.loadURDF()
+        # https://github.com/ChenEating716/pybullet-URDF-models/tree/main
+        # https://github.com/bulletphysics/bullet3/tree/master/data # with collision
+        
+        asset_specs = [
+            (f"{asset_path}/red_marker/model.urdf", [0.32, -0.05, 0.01], 1.0),
+            (f"{asset_path}/banana/model.urdf", [0.28, -0.13, 0.01], 0.8),
+            (f"{asset_path}/blue_plate/model.urdf", [0.28, 0.12, 0.02], 1.0),
+        ]
+        
+        for asset, pos, scale in asset_specs:
+            p.loadURDF(asset, pos, globalScaling=scale)
+
+        # Define camera parameters
+        # https://docs.google.com/document/d/1si-6cTElTWTgflwcZRPfgHU7-UwfCUkEztkH3ge5CGc/edit
+        # TODO: calibrate the intrinsic and extrinsic parameters
+        camera_eye_position = [0.04, -0.12, 0.34]  # x=4cm, y=12cm, z=34cm
+        camera_target_position = [0.38, 0, 0]  # Pointing at the origin
+        camera_up_vector = [0, 0, 1]  # Z-axis up
+        self.cam_view_matrix = p.computeViewMatrix(
+            camera_eye_position, camera_target_position, camera_up_vector
+        )
+        self.cam_proj_matrix = p.computeProjectionMatrixFOV(
+            fov=51.83,   # vertical fov, logitech C920 diagonal fov is 78.0
+            aspect=image_size[1] / image_size[0], # width/height
+            nearVal=0.01,
+            farVal=99.0,
+        )
+        self.ksolver = KinematicsSolver(urdf_path, eef_link=eef_link)
+        p.setGravity(0, 0, -10)
+        self.move_eef(self.default_pose[:6], reset=True)
+        self.move_gripper(self.default_pose[-1], reset=True)
+
+    @property
+    def eef_pose(self) -> np.ndarray:
+        """return the [x, y, z, rx, ry, rz] of the end effector"""
+        # Get proprioceptive information, end-effector [x, y, z, roll, pitch, yaw]
+        current_state = p.getLinkState(self.arm, 11)
+        pos = current_state[0]
+        orn = current_state[1]
+        euler = p.getEulerFromQuaternion(orn)
+        eef_pose = np.array(pos + euler)
+        return eef_pose
+
+    @property
+    def gripper_state(self) -> float:
+        """
+        Return the gripper state
+            1: open, 0: close
+        """
+        grip_joint_indices = [9, 10]
+        grip_state = []
+        for i in range(2):
+            grip_state.append(abs(p.getJointState(self.arm, grip_joint_indices[i])[0]))
+        return 1.0 if sum(grip_state) > 0.05 else 0.0
+
+    @property
+    def primary_img(self) -> np.ndarray:
+        """return the image from the camera"""
+        # Obtain the camera image
+        img_arr = p.getCameraImage(
+            height=self.image_size[0],
+            width=self.image_size[1],
+            viewMatrix=self.cam_view_matrix,
+            projectionMatrix=self.cam_proj_matrix,
+            renderer=p.ER_BULLET_HARDWARE_OPENGL,  # Use hardware acceleration
+        )[2]
+        # reshape from (height, width, 4) to (height, width, 3)
+        img_arr = img_arr[:, :, :3]
+        img_arr = np.array(img_arr, dtype=np.uint8)
+        # img_arr = cv2.cvtColor(img_arr, cv2.COLOR_BGR2RGB)
+        return img_arr
+
+    @property
+    def wrist_img(self) -> Optional[np.ndarray]:
+        """
+        return the image from the wrist camera
+        default is None (no wrist camera)
+        """
+        return None
+
+    def step_action(self, action: np.ndarray) -> bool:
+        """
+        step an relative action
+        input array of (dx, dy, dz, drx, dry, drz, gripper)
+        return True if done
+        """
+        # action[:6] = np.clip(action[:6], -0.03, 0.02)
+        print("step ", [round(a, 2) for a in action])
+        p.stepSimulation()
+        # Get image and proprioceptive data
+        proprio = np.concatenate([self.eef_pose, [self.gripper_state]])
+        abs_action = proprio + action
+        if abs_action[2] < 0.01: # explicitly set the min z
+            abs_action[2] = 0.01
+        self.move_eef(abs_action[:6])
+        if int(self.gripper_state) != round(action[-1]):
+            print("gripper action: ", "open" if action[-1] > 0.5 else "close")
+            # sticky gripper behavior
+            for _ in range(15):
+                p.stepSimulation()
+                self.move_gripper(action[-1])
+        else:
+            self.move_gripper(action[-1])
+        return True
+
+    def move_eef(self, pose: np.ndarray, reset=False):
+        """
+        Move the endeffector to the target position and orientation
+        : args action: 6-dimensional vector of absolute
+                        [x, y, z, roll, pitch, yaw]
+        : args reset: whether to reset the joint states else use position control
+        """
+        current_joints = []
+        for i in range(5):
+            current_joints.append(p.getJointState(self.arm, i)[0])
+
+        joints = self.ksolver.ik(
+            target_position=pose[:3],
+            target_orientation=pose[3:6],
+            initial_state=current_joints,
+        )
+        assert len(joints) == 5
+
+        if reset:
+            # reset joint states
+            for i in range(5):
+                p.resetJointState(self.arm, i, joints[i])
+        else:
+            # print("  target joints: ", [round(j, 2) for j in joints])
+            # apply joint angles to the arm
+            for i in range(5):
+                p.setJointMotorControl2(
+                    bodyIndex=self.arm,
+                    jointIndex=i,
+                    controlMode=p.POSITION_CONTROL,
+                    targetPosition=joints[i],
+                    force=1000,
+                    maxVelocity=50.0,
+                )
+        return True
+
+    def move_gripper(self, state: float, reset=False):
+        """
+        Move the gripper to a specific state
+        : args state: 1: open, 0: close
+        """
+        grip_joint_indices = [9, 10]  # the joint indices of the gripper
+        grip_position = [0.0, 0.0] if state < 0.5 else [0.04, -0.04]
+        if reset:
+            # reset joint states
+            for i in range(2):
+                p.resetJointState(self.arm, grip_joint_indices[i], grip_position[i])
+        else:
+            for i in range(2):
+                p.setJointMotorControl2(
+                    bodyIndex=self.arm,
+                    jointIndex=grip_joint_indices[i],
+                    controlMode=p.POSITION_CONTROL,
+                    targetPosition=grip_position[i],
+                    force=1000,
+                    maxVelocity=50.0,
+                )
+        return True
+
+    def reset(self) -> bool:
+        p.setGravity(0, 0, -10)
+        self.move_eef(self.default_pose[:6], reset=True)
+        self.move_gripper(self.default_pose[-1], reset=True)
+        return True
+
+    def __del__(self):
+        p.disconnect(self.client)

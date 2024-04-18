@@ -4,13 +4,13 @@
 
 This package provides a common gym-like environment for policy to interact with a manipulator robot. The environment is based on the `gym` interface, and the robots are defined as `interfaces`. The abstracted robot interfaces is easily swappable, modularized and run distributedly. Common utilities are provided to assist users to run robot policies (e.g. octo) on the robot.
 
-| Manipulator Interfaces                                                         | Description                                           |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| [widowx](./manipulator_gym/interfaces/widowx.py)                               | Interbotix widowx interface in ROS1                   |
-| [interfaces/widowx_ros2](./manipulator_gym/interfaces/widowx_ros2.py)          | Interbotix widowx interface in ROS2                   |
-| [interfaces/widowx_sim](./manipulator_gym/interfaces/widowx_sim.py)            | Interbotix widowx in a pybullet sim                   |
-| [interfaces/viperx](./manipulator_gym/interfaces/viperx.py)                    | Interbotix viperx interface in ROS1                   |
-| [interfaces/service_client](./manipulator_gym/interfaces/interface_service.py) | client interface to connect a remote interface server |
+| Manipulator Interfaces                                              | Description                                           |
+| ------------------------------------------------------------------- | ----------------------------------------------------- |
+| [widowx](./manipulator_gym/interfaces/widowx.py)                    | Interbotix widowx interface in ROS1                   |
+| [widowx_ros2](./manipulator_gym/interfaces/widowx_ros2.py)          | Interbotix widowx interface in ROS2                   |
+| [widowx_sim](./manipulator_gym/interfaces/widowx_sim.py)            | Interbotix widowx in a pybullet sim                   |
+| [viperx](./manipulator_gym/interfaces/viperx.py)                    | Interbotix viperx interface in ROS1                   |
+| [service_client](./manipulator_gym/interfaces/interface_service.py) | client interface to connect a remote interface server |
 
 *more coming soon.... (etc. mujoco panda)*
 
@@ -123,10 +123,10 @@ Data collection and Fine-tuning of Octo model
 
 Generate the log files for the RLDS training, this example uses `test_vrmani_env` dataset.
 ```bash
-# use --test for testing mode, in actual use case 
+# use --test for testing mode, in actual use case with oculus controller
 python3 vr_data_collection.py --rlds_output . --test
 ```
-*Note: need to [oculus_reader](https://github.com/rail-berkeley/oculus_reader) to collect data with occulus vr controller*
+*Note: need to [oculus_reader](https://github.com/rail-berkeley/oculus_reader) to collect data with occulus vr controller (linear movement with controller, rotation with controller joystick)*
 
 (optional) Validate the generated log files by replaying on the robot gym env
 ```bash

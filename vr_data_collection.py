@@ -12,13 +12,16 @@ from manipulator_gym.manipulator_env import ManipulatorEnv
 from manipulator_gym.interfaces.base_interface import ManipulatorInterface
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
 import manipulator_gym.utils.transformation_utils as tr
+from manipulator_gym.utils.gym_wrappers import ResizeObsImageWrapper
 
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("rlds_output", None, "Path to log the data.")
+flags.DEFINE_string("ds_name", "test_vrmani_env", "Name of the dataset.")
 flags.DEFINE_string("ip", "localhost", "IP address of the robot server.")
 flags.DEFINE_bool("show_img", False, "Whether to visualize the images or not.")
 flags.DEFINE_bool("test", False, "Whether to test the data collection or not.")
+flags.DEFINE_bool("resize_img", False, "Whether to resize the images or not.")
 
 FLAGS(sys.argv)
 
@@ -33,7 +36,7 @@ ANGULAR_ACTION_PER_STEP = 0.06
 TIME_STEP = 0.1
 
 
-class Teleop_Data_Collector:
+class TeleopDataCollector:
     def __init__(self, oculus_reader, env, log_dir=None) -> None:
         self.ref_point_set = False
         self.gripper_open = False
@@ -138,7 +141,8 @@ class Teleop_Data_Collector:
                 if FLAGS.test:
                     task_text = "dummy task text"  # test mode
                 else:
-                    task_text = input("Enter task text: ")
+                    task_text = input("Enter task text: ") or self.current_language_text
+
                 self.current_language_text = task_text
                 self.env.set_step_metadata(
                     {"language_text": self.current_language_text})
@@ -300,10 +304,17 @@ if __name__ == '__main__':
             manipulator_interface=ActionClientInterface(host=FLAGS.ip))
         reader = OculusReader()
 
-    data_collector = Teleop_Data_Collector(
+    # this will dictate the size of the image that will be logged
+    if FLAGS.resize_img:
+        env = ResizeObsImageWrapper(
+            env,
+            resize_size={"image_primary": (256, 256), "image_wrist": (128, 128)}
+        )
+
+    data_collector = TeleopDataCollector(
         oculus_reader=reader,
         env=env,
-        log_dir=FLAGS.rlds_output + "/test_vrmani_env/0.1.0",
+        log_dir=f"{FLAGS.rlds_output}/{FLAGS.ds_name}/0.1.0"
     )
 
     stopDataCollection = False

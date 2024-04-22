@@ -42,8 +42,8 @@ def get_config(config_string="full,multimodal"):
 
     FINETUNING_KWARGS = {
         "name": "test_vrmani_env",
-        "data_dir": "../manipulator_gym/new_dir",
-        "image_obs_keys": {"primary": "image_primary", "wrist": None},
+        "data_dir": "gs://moma-finetuning-v4/18_04_merged/18_04_all_reshard10/",
+        "image_obs_keys": {"primary": "image_primary", "wrist": "image_wrist"},
         # "state_obs_keys": ["proprio", None],
         "state_obs_keys": ["EEF_state", None, "gripper_state"],
         # "state_encoding": 1,
@@ -76,18 +76,18 @@ def get_config(config_string="full,multimodal"):
         raise ValueError("Invalid mode")
 
     max_steps = FieldReference(50000)
-    window_size = FieldReference(default=1)
+    window_size = FieldReference(default=2)
 
     config = dict(
         pretrained_path=placeholder(str),
         pretrained_step=placeholder(int),
-        batch_size=64,
-        shuffle_buffer_size=10,
+        batch_size=256,
+        shuffle_buffer_size=10000,
         num_steps=max_steps,
         log_interval=100,
         eval_interval=5000,
         save_interval=5000,
-        save_dir=placeholder(str),
+        save_dir="gs://moma-finetuning-v4/checkpoints/",
         seed=42,
         wandb=dict(
             project="octo_finetune", group=placeholder(str), entity=placeholder(str)

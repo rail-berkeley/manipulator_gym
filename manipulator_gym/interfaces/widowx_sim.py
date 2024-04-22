@@ -7,6 +7,7 @@ import os
 import pybullet as p
 import pybullet_data
 
+
 class WidowXSimInterface:
     """
     Defines the base abstract class of WidowX Sim interface. This class
@@ -17,19 +18,23 @@ class WidowXSimInterface:
         self,
         default_pose=np.array([0.2, 0.0, 0.15, 0.0, 1.57, 0.0, 1]),
         image_size=(480, 640),
+        headless=True,
     ):
         """
         Define the environment
         : args default_pose: 7-dimensional vector of
                             [x, y, z, roll, pitch, yaw, gripper_state]
         : args im_size: image size
+        : args headless: whether to run the simulation in headless mode
         """
         assert len(default_pose) == 7
         self.image_size = image_size
         self.default_pose = default_pose
         # Initialize PyBullet, and hide side panel but still show obs
-        self.client = p.connect(p.GUI)
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 1)
+        self.client = p.connect(p.DIRECT if headless else p.GUI)
+
+        # Disable shadow as it hurts performance of the policy since policy is not trained with this env
+        p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.table = p.loadURDF("table/table.urdf", 0.5, 0.0, -0.63, 0.0, 0.0, 0.0, 1.0)
 
@@ -48,13 +53,11 @@ class WidowXSimInterface:
         # NOTE: users can add more objects to the scene by impl p.loadURDF()
         # https://github.com/ChenEating716/pybullet-URDF-models/tree/main
         # https://github.com/bulletphysics/bullet3/tree/master/data # with collision
-        
         asset_specs = [
             (f"{asset_path}/red_marker/model.urdf", [0.32, -0.05, 0.01], 1.0),
             (f"{asset_path}/banana/model.urdf", [0.28, -0.13, 0.01], 0.8),
             (f"{asset_path}/blue_plate/model.urdf", [0.28, 0.12, 0.02], 1.0),
         ]
-        
         for asset, pos, scale in asset_specs:
             p.loadURDF(asset, pos, globalScaling=scale)
 
@@ -69,7 +72,7 @@ class WidowXSimInterface:
         )
         self.cam_proj_matrix = p.computeProjectionMatrixFOV(
             fov=51.83,   # vertical fov, logitech C920 diagonal fov is 78.0
-            aspect=image_size[1] / image_size[0], # width/height
+            aspect=image_size[1] / image_size[0],  # width/height
             nearVal=0.01,
             farVal=99.0,
         )
@@ -138,7 +141,7 @@ class WidowXSimInterface:
         # Get image and proprioceptive data
         proprio = np.concatenate([self.eef_pose, [self.gripper_state]])
         abs_action = proprio + action
-        if abs_action[2] < 0.01: # explicitly set the min z
+        if abs_action[2] < 0.01:  # explicitly set the min z
             abs_action[2] = 0.01
         self.move_eef(abs_action[:6])
         if int(self.gripper_state) != round(action[-1]):

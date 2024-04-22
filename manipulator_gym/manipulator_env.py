@@ -29,19 +29,20 @@ class ManipulatorEnv(gym.Env):
     def __init__(
         self,
         manipulator_interface: ManipulatorInterface,
-        img_shape=(256, 256, 3),
-        wrist_img_shape=(128, 128, 3),
         workspace_boundary=np.array([[-9., -9., -9.],  [9., 9., 9.]]),
         state_encoding=StateEncoding.POS_EULER,
         use_wrist_cam: bool = False,
-        reward_func: Optional[Callable[[Dict], float]] = None,
+        reward_fn: Optional[Callable[[Dict], float]] = None,
+        done_fn: Optional[Callable[[Dict], tuple]] = None,
     ):
         """
         Args:
-        - img_shape: shape of the camera img
-        - wrist_img_shape: shape of the wrist img if avail
-        - reward_func: function to calculate reward given the current observation
+        - manipulator_interface: interface to the manipulator
         - workspace_boundary: the boundary of the eef workspace in abs coordinates
+        - state_encoding: the state encoding of the observation
+        - use_wrist_cam: whether to use the wrist camera
+        - reward_fn: reward function: Given an obs return a float of the reward
+        - done_fn: function to check if the episode should terminate or truncate. return (term, trunc)
 
         We would define the action space as a such [dx, dy, dz, drx, dry, drz, abs gripper]
 
@@ -55,11 +56,12 @@ class ManipulatorEnv(gym.Env):
         if state_encoding == StateEncoding.JOINT:
             assert manipulator_interface.joint_states is not None, "Joint states not available"
 
+        _sample_img_shape = manipulator_interface.primary_img.shape
         self.observation_space = gym.spaces.Dict(
             {
                 "image_primary": gym.spaces.Box(
-                    low=np.zeros(img_shape, dtype=np.uint8),
-                    high=255 * np.ones(img_shape, dtype=np.uint8),
+                    low=np.zeros(_sample_img_shape, dtype=np.uint8),
+                    high=255 * np.ones(_sample_img_shape, dtype=np.uint8),
                     dtype=np.uint8,
                 ),
             }
@@ -68,46 +70,47 @@ class ManipulatorEnv(gym.Env):
         if state_encoding is not StateEncoding.NONE:
             # NOTE: internally octo is using the key "state" for proprioception
             self.observation_space.spaces["state"] = gym.spaces.Box(
-                low=np.ones((8,)) * -4, high=np.ones((8,))*4, dtype=np.float64
+                low=np.ones((8,)) * -4, high=np.ones((8,))*4, dtype=np.float32
             )
 
         if use_wrist_cam and manipulator_interface.wrist_img is not None:
+            _sample_img_shape = manipulator_interface.wrist_img.shape
             self.observation_space.spaces["image_wrist"] = gym.spaces.Box(
-                low=np.zeros(wrist_img_shape, dtype=np.uint8),
-                high=255 * np.ones(wrist_img_shape, dtype=np.uint8),
+                low=np.zeros(_sample_img_shape, dtype=np.uint8),
+                high=255 * np.ones(_sample_img_shape, dtype=np.uint8),
                 dtype=np.uint8,
             )
 
         displacement = 0.02
         self.action_space = gym.spaces.Box(
-            low=np.ones(7)*-displacement,
-            high=np.ones(7)*displacement,
+            low=np.ones(manipulator_interface.step_action_shape)*-displacement,
+            high=np.ones(manipulator_interface.step_action_shape)*displacement,
             dtype=np.float32
         )
 
         print("action space: ", self.action_space)
         print("observation space: ", self.observation_space)
         print("-"*50)
-        self.img_shape = img_shape
-        self.wrist_img_shape = wrist_img_shape
-        self.reward_func = reward_func
+        self._reward_fn = reward_fn
+        self._done_fn = done_fn
         self._state_encoding = state_encoding
         self._use_wrist_cam = use_wrist_cam
         self.manipulator_interface = manipulator_interface
         self.workspace_boundary = np.array(workspace_boundary)
 
     def step(self, action: np.ndarray) -> tuple:
-        terminal = False
         obs = self._get_obs()
-        reward = 0.0 if self.reward_func is None else self.reward_func(obs)
-        trunc = False
-        # Handle Robot Actions
 
+        # Default values
+        terminal = False
+        trunc = False
+        reward = 0.0 if self._reward_fn is None else self._reward_fn(obs)
+
+        # Handle Robot Actions
         if 'state' in obs:
             in_boundary = self._check_if_within_boundary(obs['state'][:3])
             if in_boundary:
-                terminal = self.manipulator_interface.step_action(action)
-                terminal = False  # NOTE we will not reset the env when out of boundary
+                self.manipulator_interface.step_action(action)
             else:
                 print("Eef Out of boundary")
                 action[0] = np.clip(action[0], self.workspace_boundary[0, 0], self.workspace_boundary[1, 0])
@@ -117,11 +120,8 @@ class ManipulatorEnv(gym.Env):
         else:
             self.manipulator_interface.step_action(action)
 
-        if terminal:
-            pass
-
-        if trunc:
-            pass
+        if self._done_fn is not None:
+            terminal, trunc = self._done_fn(obs)
 
         return obs, reward, terminal, trunc, {}
 
@@ -135,11 +135,8 @@ class ManipulatorEnv(gym.Env):
         return self._get_obs()
 
     def _get_obs(self):
-        # resizes the image to the desired shape
-        img = self.manipulator_interface.primary_img
-        img = cv2.resize(img, (self.img_shape[0], self.img_shape[1]))
         d = {
-            'image_primary': cv2.resize(img, (self.img_shape[0], self.img_shape[1]))
+            'image_primary': self.manipulator_interface.primary_img
         }
         if self._state_encoding == StateEncoding.POS_EULER:
             d['state'] = np.concatenate([
@@ -158,9 +155,7 @@ class ManipulatorEnv(gym.Env):
             img_wrist = self.manipulator_interface.wrist_img
             if img_wrist is not None:
                 # add wrist image to the observation with the desired shape
-                d['image_wrist'] = cv2.resize(
-                    img_wrist, (self.wrist_img_shape[0], self.wrist_img_shape[1])
-                )
+                d['image_wrist'] = img_wrist
         return d
 
     def _check_if_within_boundary(self, cartesian_coord: np.ndarray) -> bool:

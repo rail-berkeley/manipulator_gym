@@ -11,6 +11,9 @@ class ManipulatorInterface(ABC):
     is used for the gym env to interact with the a manipulator robot.
     # TODO: define @abstractmethod for each method
     """
+    # This defines the step_action() input action space shape
+    step_action_shape = 7
+
     def __init__(self):
         pass
 
@@ -57,6 +60,7 @@ class ManipulatorInterface(ABC):
         step an relative action of the manipulator
          1. cartesian space control: (dx, dy, dz, drx, dry, drz, gripper)
          2. joint space control: (j1, j2, j3, j4, j5, ..., gripper)
+         3. define the action space in the "class. step_action_shape"
 
         return True if done
         """

@@ -29,14 +29,23 @@ if __name__ == '__main__':
     # print("size of dataset", len(list(dataset)))
     # assert len(list(dataset)) == num_of_episodes, f"There should be 3 episodes in the dataset"
     # dataset = dataset.repeat().shuffle(1).batch(1)
-    dataset = dataset.take(1).cache().repeat()
+    ds_length = len(list(dataset))
+    dataset = dataset.take(ds_length)
     it = iter(dataset)
 
-    for i in tqdm.tqdm(range(3)):
+    for i in tqdm.tqdm(range(ds_length)):
         episode = next(it)
+        print("episode: ", i)
+        steps = episode['steps']
+        # for step in steps:
+        #     img = step['observation']['image_primary']
+        #     img = np.array(img)
+        #     cv2.imshow("img", img)
+        #     cv2.waitKey(10)
+        #     break
+        # continue
         print("key in a traj: ", episode.keys())
 
-        steps = episode['steps']
         prim_img_buffer = []
         wrist_img_buffer = []
         
@@ -45,6 +54,7 @@ if __name__ == '__main__':
         
         for step in steps:
             print(step['observation'].keys())
+            # print(step["action"])
             # print(" - state: ", step['observation']['state'])
 
             if args.show_img:
@@ -52,7 +62,7 @@ if __name__ == '__main__':
                 img = np.array(img)
                 cv2.imshow("img", img)
                 cv2.waitKey(10)
-
+            
             if args.show_figures:
                 prim_img_buffer.append(step['observation']['image_primary'])
                 wrist_img_buffer.append(step['observation']['image_wrist'])

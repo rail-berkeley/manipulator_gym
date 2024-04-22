@@ -8,13 +8,17 @@ import gym
 import jax
 import numpy as np
 import wandb
+from typing import Dict, Tuple
 import cv2
 
 from manipulator_gym.manipulator_env import ManipulatorEnv, StateEncoding
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
+from manipulator_gym.interfaces.base_interface import ManipulatorInterface
+from manipulator_gym.utils.gym_wrappers import ConvertState2Propio, ResizeObsImageWrapper
 
 from octo.model.octo_model import OctoModel
-from octo.utils.gym_wrappers import HistoryWrapper, RHCWrapper, UnnormalizeActionProprio
+from octo.utils.gym_wrappers import HistoryWrapper, RHCWrapper, \
+    UnnormalizeActionProprio, TemporalEnsembleWrapper
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("checkpoint_path", None, "Path to Octo checkpoint directory.")
@@ -23,39 +27,11 @@ flags.DEFINE_bool("show_img", False, "Whether to visualize the images or not.")
 flags.DEFINE_string("text_cond", "put the banana on the plate", "Language prompt for the task.")
 
 
-class ConvertState2Propio(gym.Wrapper):
-    """
-    convert dict key 'state' to 'proprio' to comply to bridge_dataset stats
-    """
-    def __init__(self, env):
-        super().__init__(env)
-        self.observation_space = gym.spaces.Dict()
-        # convert in obs space
-        for key, value in self.env.observation_space.spaces.items():
-            if key == "state":
-                self.observation_space["proprio"] = value
-            else:
-                self.observation_space[key] = value
-
-    def step(self, action):
-        obs, reward, done, trunc, info = self.env.step(action)
-        obs["proprio"] = obs["state"]
-        obs.pop("state")
-        return obs, reward, done, trunc, info
-
-    def reset(self, **kwargs):
-        obs, info = self.env.reset(**kwargs)
-        obs["proprio"] = obs["state"]
-        obs.pop("state")
-        return obs, info
-
-
 def main(_):
     # load finetuned model
     logging.info("Loading finetuned model...")
     if not FLAGS.checkpoint_path:
         model = OctoModel.load_pretrained("hf://rail-berkeley/octo-small")
-        # model = OctoModel.load_pretrained("./oier_models")
     else:
         model = OctoModel.load_pretrained(FLAGS.checkpoint_path)
 
@@ -77,20 +53,28 @@ def main(_):
     ##################################################################################################################
     env = ManipulatorEnv(
         manipulator_interface=ActionClientInterface(host=FLAGS.ip),
+        # manipulator_interface=ManipulatorInterface(), # for testing
         state_encoding=StateEncoding.POS_EULER,
         use_wrist_cam=True,
     )
     env = ConvertState2Propio(env)
-    # add wrappers for history and "receding horizon control", i.e. action chunking
+    env = ResizeObsImageWrapper(env, resize_size={"image_primary": (256, 256), "image_wrist": (128, 128)})
+
+    # # add wrappers for history and "receding horizon control", i.e. action chunking
+    # env = HistoryWrapper(env, horizon=2)
     env = HistoryWrapper(env, horizon=1)
-    env = RHCWrapper(env, exec_horizon=4)
+    env = TemporalEnsembleWrapper(env, 4)
+    # env = RHCWrapper(env, exec_horizon=4)
+
     # NOTE: we are using bridge_dataset's statistics for default normalization
     # wrap env to handle action/proprio normalization -- match normalization type to the one used during finetuning
     env = UnnormalizeActionProprio(
-        env, model.dataset_statistics["bridge_dataset"], normalization_type="normal"
+        env,
+        model.dataset_statistics["bridge_dataset"],
+        normalization_type="normal"
     )
     # running rollouts
-    for _ in range(3):
+    for _ in range(100):
         one_traj_data = np.array([])
         obs, info = env.reset()
         # create task specification --> use model utility to create task dict with correct entries
@@ -99,19 +83,21 @@ def main(_):
         # task = model.create_tasks(goals={"image_primary": img})   # for goal-conditioned
 
         episode_return = 0.0
-        for i in range(150):
+        for i in range(250):
             if FLAGS.show_img:
                 img = obs["image_primary"][0]
                 cv2.imshow("image", cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-                cv2.waitKey(10)
+                # img2 = obs["image_wrist"][0]
+                # cv2.imshow("image_wrist", cv2.cvtColor(img2, cv2.COLOR_BGR2RGB))
+                # capture "r" key and reset
+                if cv2.waitKey(10) & 0xFF == ord("r"):
+                    break
 
             # model returns actions of shape [batch, pred_horizon, action_dim] -- remove batch
             actions = model.sample_actions(
                 jax.tree_map(lambda x: x[None], obs), task, rng=jax.random.PRNGKey(0)
             )
             actions = actions[0]
-            # actions = actions[:, :-1] # TODO(YL) why needed?
-            # actions = actions * 2
             print("performing action: ",actions)
             print(f"Step {i} with action size of {len(actions)}")
             # step env -- info contains full "chunk" of observations for logging

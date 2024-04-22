@@ -80,7 +80,6 @@ class ActionClientInterface(ManipulatorInterface):
             return True
 
     def reset(self) -> bool:
-
         print(" reset clled by client")
         res = self._client.act("reset", {})
         if res and "status" in res and res["status"]:

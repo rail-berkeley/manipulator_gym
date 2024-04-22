@@ -30,6 +30,52 @@ This package provides a common gym-like environment for policy to interact with 
 
 ## Quick Start
 
+### Code Snippets
+
+To use the gym env, is quite straightforward. Define it as such:
+  
+```python
+from manipulator_gym.manipulator_env import ManipulatorEnv
+from manipulator_gym.interfaces.base_interface import ManipulatorInterface
+
+# 1. define select the robot interface
+# ManipulatorInterface is an abstract class, you choose the interfaces from the list above
+# e.g. interface = WidowXSimInterface(), ViperXInterface(), etc.
+interface = ManipulatorInterface()
+
+# 2. define the gym env, Done!
+env = ManipulatorEnv(interface=interface)
+```
+
+Then, you can use the gym env as you would with any other gym env. :partying_face: You can also use other `interfaces` to run different kinds of manipulators, e.g. `widowx`, `viperx`, `action_client-server`, etc.
+
+
+Alos, we can make the interface to be a server-client setup, to run the policy on a different process, or even machine. Create 2 seperate scripts `server.py` and `client.py`:
+
+1. In `server.py`. Run the interface as server
+
+```python
+from manipulator_gym.interfaces.base_interface import ManipulatorInterface
+from manipulator_gym.interfaces.interface_service import ManipulatorInterfaceServer
+
+server = ManipulatorInterfaceServer(manipulator_interface=interface)
+server.start()
+```
+
+2. In `slient.py`. Then run the env with the client interface
+
+```python
+from manipulator_gym.manipulator_env import ManipulatorEnv
+from manipulator_gym.interfaces.interface_service import ActionClientInterface
+
+interface = ActionClientInterface(host=FLAGS.ip)
+env = ManipulatorEnv(manipulator_interface=interface)
+```
+
+Tada!
+
+### Run Examples
+
 First, we show how to run a simple sim env of a widowx robot, while enabling logging of rlds data.
 
 ```bash
@@ -56,11 +102,20 @@ Run the "Policy Client":
 python octo_eval.py --ip IP_ADDRESS --show_img --text_cond "put the banana on the plate"
 ```
 
+Communication nodes looks like this:
+
+```mermaid
+graph LR
+    A[Widowx Sim, server interface]
+    A <--agentlace--> B[Gym Env, action client interface <-> Octo Policy]
+```
+
 <p align="center">
   <img src="./docs/octo_widowx_sim.gif" width="70%">
 </p>
 
 ☝️ This is what you expect to see when running the above commands.
+
 
 ---
 
@@ -72,12 +127,6 @@ This uses the pybullet sim to simulate the widowx robot.
 
 ```bash
 pip install pybullet
-```
-
-```mermaid
-graph LR
-    A[Pybullet Sim]
-    A <--agentlace--> B[Gym Env <-> Octo Policy]
 ```
 
 ### ViperX or WidowX

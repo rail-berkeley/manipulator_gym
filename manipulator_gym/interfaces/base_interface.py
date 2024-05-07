@@ -30,7 +30,7 @@ class ManipulatorInterface(ABC):
     @property
     def primary_img(self) -> np.ndarray:
         """return the image from the camera"""
-        return np.zeros((480, 640, 3), dtype=np.uint8)
+        return np.zeros((256, 256, 3), dtype=np.uint8)
 
     @property
     def wrist_img(self) -> Optional[np.ndarray]:
@@ -38,7 +38,7 @@ class ManipulatorInterface(ABC):
         return the image from the wrist camera
         default is None (no wrist camera)
         """
-        return None
+        return np.zeros((256, 256, 3), dtype=np.uint8)
 
     @property
     def joint_states(self) -> Optional[np.ndarray]:
@@ -89,5 +89,5 @@ class ManipulatorInterface(ABC):
         """Joint space control in absolute angles"""
         return False
 
-    def reset(self) -> bool:
+    def reset(self, **kwargs) -> bool:
         return True

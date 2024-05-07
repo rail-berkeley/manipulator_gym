@@ -14,7 +14,7 @@ import cv2
 from manipulator_gym.manipulator_env import ManipulatorEnv, StateEncoding
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
 from manipulator_gym.interfaces.base_interface import ManipulatorInterface
-from manipulator_gym.utils.gym_wrappers import ConvertState2Propio, ResizeObsImageWrapper
+from manipulator_gym.utils.gym_wrappers import ConvertState2Proprio, ResizeObsImageWrapper
 
 from octo.model.octo_model import OctoModel
 from octo.utils.gym_wrappers import HistoryWrapper, RHCWrapper, \
@@ -57,7 +57,7 @@ def main(_):
         state_encoding=StateEncoding.POS_EULER,
         use_wrist_cam=True,
     )
-    env = ConvertState2Propio(env)
+    env = ConvertState2Proprio(env)
     env = ResizeObsImageWrapper(env, resize_size={"image_primary": (256, 256), "image_wrist": (128, 128)})
 
     # # add wrappers for history and "receding horizon control", i.e. action chunking

@@ -79,9 +79,8 @@ class ActionClientInterface(ManipulatorInterface):
         if res and "status" in res and res["status"]:
             return True
 
-    def reset(self) -> bool:
-        print(" reset clled by client")
-        res = self._client.act("reset", {})
+    def reset(self, **kwargs) -> bool:
+        res = self._client.act("reset", kwargs)
         if res and "status" in res and res["status"]:
             return True
         return False
@@ -155,7 +154,7 @@ class ManipulatorInterfaceServer:
 
     def __action(self, type: str, req_payload) -> dict:
         if type == "reset":
-            status = self._manipulator_interface.reset()
+            status = self._manipulator_interface.reset(req_payload)
         elif type == "step_action":
             status = self._manipulator_interface.step_action(req_payload)
         elif type == "move_eef":

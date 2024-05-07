@@ -100,11 +100,12 @@ class ViperXInterface(ManipulatorInterface):
             self._gripper.close(delay=0.1)
         return True
 
-    def reset(self) -> bool:
+    def reset(self, reset_pose=True) -> bool:
         """Override function from base class"""
-        print("Resetting the robot")
-        self.move_eef(np.array([0.258325, 0, 0.16065, 0, math.pi/2, 0]))
-        self._gripper.open()
+        print("Reset robot interface, reset to home pose?: ", reset_pose)
+        if reset_pose:
+            self.move_eef(np.array([0.26, 0.0, 0.26, 0.0, math.pi/2, 0.0]))
+            self._gripper.open()
         return True
 
     def _update_primary_cam(self, img_msg):

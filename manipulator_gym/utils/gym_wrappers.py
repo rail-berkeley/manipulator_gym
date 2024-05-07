@@ -4,7 +4,7 @@ import cv2
 from typing import Dict, Tuple
 import logging
 
-class ConvertState2Propio(gym.Wrapper):
+class ConvertState2Proprio(gym.Wrapper):
     """
     convert dict key 'state' to 'proprio' to comply to bridge_dataset stats
     """

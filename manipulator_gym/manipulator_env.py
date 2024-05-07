@@ -126,8 +126,7 @@ class ManipulatorEnv(gym.Env):
         return obs, reward, terminal, trunc, {}
 
     def reset(self, **kwargs) -> tuple:
-        self.manipulator_interface.reset()
-        print("reset call")
+        self.manipulator_interface.reset(**kwargs)
         obs = self._get_obs()
         return obs, {}
 

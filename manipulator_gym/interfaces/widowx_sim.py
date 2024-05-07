@@ -213,10 +213,13 @@ class WidowXSimInterface:
                 )
         return True
 
-    def reset(self) -> bool:
-        p.setGravity(0, 0, -10)
-        self.move_eef(self.default_pose[:6], reset=True)
-        self.move_gripper(self.default_pose[-1], reset=True)
+    def reset(self, reset_pose=True) -> bool:
+        """Override function from base class"""
+        print("Reset robot interface, reset to home pose?: ", reset_pose)
+        if reset_pose:
+            p.setGravity(0, 0, -10)
+            self.move_eef(self.default_pose[:6], reset=True)
+            self.move_gripper(self.default_pose[-1], reset=True)
         return True
 
     def __del__(self):

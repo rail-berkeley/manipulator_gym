@@ -16,9 +16,9 @@ class WidowXSimInterface:
 
     def __init__(
         self,
-        default_pose=np.array([0.2, 0.0, 0.15, 0.0, 1.57, 0.0, 1]),
+        default_pose=np.array([0.2, 0.0, 0.15, 0.0, 1.57, 0.0, 1.0]),
         image_size=(480, 640),
-        headless=True,
+        headless=False,
     ):
         """
         Define the environment
@@ -127,6 +127,7 @@ class WidowXSimInterface:
         return the image from the wrist camera
         default is None (no wrist camera)
         """
+        # return np.zeros((self.image_size[0], self.image_size[1], 3))
         return None
 
     def step_action(self, action: np.ndarray) -> bool:

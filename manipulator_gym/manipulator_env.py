@@ -34,6 +34,7 @@ class ManipulatorEnv(gym.Env):
         use_wrist_cam: bool = False,
         reward_fn: Optional[Callable[[Dict], float]] = None,
         done_fn: Optional[Callable[[Dict], tuple]] = None,
+        eef_displacement : float = 0.02
     ):
         """
         Args:
@@ -81,10 +82,10 @@ class ManipulatorEnv(gym.Env):
                 dtype=np.uint8,
             )
 
-        displacement = 0.02
+        self._eef_displacement = eef_displacement
         self.action_space = gym.spaces.Box(
-            low=np.ones(manipulator_interface.step_action_shape)*-displacement,
-            high=np.ones(manipulator_interface.step_action_shape)*displacement,
+            low=np.ones(manipulator_interface.step_action_shape)*-eef_displacement,
+            high=np.ones(manipulator_interface.step_action_shape)*eef_displacement,
             dtype=np.float32
         )
 
@@ -108,17 +109,20 @@ class ManipulatorEnv(gym.Env):
 
         # Handle Robot Actions
         if 'state' in obs:
-            in_boundary = self._check_if_within_boundary(obs['state'][:3])
-            if in_boundary:
-                self.manipulator_interface.step_action(action)
-            else:
-                print("Eef Out of boundary")
-                action[0] = np.clip(action[0], self.workspace_boundary[0, 0], self.workspace_boundary[1, 0])
-                action[1] = np.clip(action[1], self.workspace_boundary[0, 1], self.workspace_boundary[1, 1])
-                action[2] = np.clip(action[2], self.workspace_boundary[0, 2], self.workspace_boundary[1, 2])
-                self.manipulator_interface.step_action(action)
-        else:
-            self.manipulator_interface.step_action(action)
+            # in_boundary = self._check_if_within_boundary(obs['state'][:3])
+            # if in_boundary:
+            #     self.manipulator_interface.step_action(action)
+            # else:
+            #     print("Eef Out of boundary")
+            #     action[0:3] = np.clip(action[0:3], self.workspace_boundary[0] - obs['state'][0:3], self.workspace_boundary[1] - obs['state'][0:3])
+            #     self.manipulator_interface.step_action(action)
+            clip_low = self.workspace_boundary[0] - obs['state'][0:3]
+            clip_high = self.workspace_boundary[1] - obs['state'][0:3]
+            print("Clip Range", clip_low, clip_high)
+            action[0:3] = np.clip(action[0:3], clip_low, clip_high)
+            action[0:3] = np.clip(action[0:3], -self._eef_displacement, self._eef_displacement)
+        
+        self.manipulator_interface.step_action(action)
 
         if self._done_fn is not None:
             terminal, trunc = self._done_fn(obs)

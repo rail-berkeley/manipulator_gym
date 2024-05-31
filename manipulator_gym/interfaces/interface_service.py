@@ -154,7 +154,7 @@ class ManipulatorInterfaceServer:
 
     def __action(self, type: str, req_payload) -> dict:
         if type == "reset":
-            status = self._manipulator_interface.reset(req_payload)
+            status = self._manipulator_interface.reset(**req_payload)
         elif type == "step_action":
             status = self._manipulator_interface.step_action(req_payload)
         elif type == "move_eef":

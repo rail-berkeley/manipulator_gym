@@ -109,19 +109,16 @@ class ManipulatorEnv(gym.Env):
 
         # Handle Robot Actions
         if 'state' in obs:
-            # in_boundary = self._check_if_within_boundary(obs['state'][:3])
-            # if in_boundary:
-            #     self.manipulator_interface.step_action(action)
-            # else:
-            #     print("Eef Out of boundary")
-            #     action[0:3] = np.clip(action[0:3], self.workspace_boundary[0] - obs['state'][0:3], self.workspace_boundary[1] - obs['state'][0:3])
-            #     self.manipulator_interface.step_action(action)
             clip_low = self.workspace_boundary[0] - obs['state'][0:3]
             clip_high = self.workspace_boundary[1] - obs['state'][0:3]
-            print("Clip Range", clip_low, clip_high)
+
+            if np.any(clip_low > 0) or np.any(clip_high < 0):
+                print("Warning: Action out of bounds. Clipping to workspace boundary.")
+
+            # print("Clip Range", clip_low, clip_high)
             action[0:3] = np.clip(action[0:3], clip_low, clip_high)
             action[0:3] = np.clip(action[0:3], -self._eef_displacement, self._eef_displacement)
-        
+
         self.manipulator_interface.step_action(action)
 
         if self._done_fn is not None:

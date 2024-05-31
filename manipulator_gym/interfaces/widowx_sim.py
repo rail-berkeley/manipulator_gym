@@ -16,9 +16,9 @@ class WidowXSimInterface:
 
     def __init__(
         self,
-        default_pose=np.array([0.2, 0.0, 0.15, 0.0, 1.57, 0.0, 1]),
+        default_pose=np.array([0.2, 0.0, 0.15, 0.0, 1.57, 0.0, 1.0]),
         image_size=(480, 640),
-        headless=True,
+        headless=False,
     ):
         """
         Define the environment
@@ -122,12 +122,24 @@ class WidowXSimInterface:
         return img_arr
 
     @property
-    def wrist_img(self) -> Optional[np.ndarray]:
+    def wrist_img(self, return_blank: bool = True) -> Optional[np.ndarray]:
         """
-        return the image from the wrist camera
-        default is None (no wrist camera)
+        Return the image from the wrist camera. Default blank image
         """
-        return None
+        if return_blank:
+            """default return blank img"""
+            return np.zeros((self.image_size[0], self.image_size[1], 3), dtype=np.uint8)
+
+        img_arr = p.getCameraImage(
+            height=self.image_size[0],
+            width=self.image_size[1],
+            viewMatrix=self._compute_wrist_cam_view_matrix(),
+            projectionMatrix=self.cam_proj_matrix,
+            renderer=p.ER_BULLET_HARDWARE_OPENGL,  # Use hardware acceleration
+        )[2]
+        img_arr = img_arr[:, :, :3]
+        img_arr = np.array(img_arr, dtype=np.uint8)
+        return img_arr
 
     def step_action(self, action: np.ndarray) -> bool:
         """
@@ -135,6 +147,7 @@ class WidowXSimInterface:
         input array of (dx, dy, dz, drx, dry, drz, gripper)
         return True if done
         """
+        start_time = time.time()
         # action[:6] = np.clip(action[:6], -0.03, 0.02)
         print("step ", [round(a, 2) for a in action])
         p.stepSimulation()
@@ -152,6 +165,7 @@ class WidowXSimInterface:
                 self.move_gripper(action[-1])
         else:
             self.move_gripper(action[-1])
+        print("Time taken for step: ", time.time() - start_time)
         return True
 
     def move_eef(self, pose: np.ndarray, reset=False):
@@ -221,6 +235,22 @@ class WidowXSimInterface:
             self.move_eef(self.default_pose[:6], reset=True)
             self.move_gripper(self.default_pose[-1], reset=True)
         return True
+
+    def _compute_wrist_cam_view_matrix(self):
+        """Compute the view matrix for the wrist camera."""
+        # Get the current position and orientation of the end effector
+        wrist_cam_pose = self.eef_pose
+        rotation_matrix = p.getMatrixFromQuaternion(p.getQuaternionFromEuler(wrist_cam_pose[3:]))
+        rotation_matrix = np.array(rotation_matrix).reshape(3, 3)
+        camera_eye_position = wrist_cam_pose[:3]  # x, y, z
+        # move camera_eye_position 0.1 along the z-axis after rotation
+        camera_eye_position = camera_eye_position + np.dot(rotation_matrix, np.array([0, 0, 0.1]))
+
+        # get the camera target position 0.1 meters in front of the camera
+        camera_target_position = camera_eye_position + np.dot(rotation_matrix, np.array([1, 0, 0]))
+        camera_up_vector = np.dot(rotation_matrix, np.array([0, 0, 1]))
+        # Compute and return the view matrix
+        return p.computeViewMatrix(camera_eye_position, camera_target_position, camera_up_vector)
 
     def __del__(self):
         p.disconnect(self.client)

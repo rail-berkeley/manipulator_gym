@@ -34,7 +34,8 @@ class ManipulatorEnv(gym.Env):
         use_wrist_cam: bool = False,
         reward_fn: Optional[Callable[[Dict], float]] = None,
         done_fn: Optional[Callable[[Dict], tuple]] = None,
-        eef_displacement : float = 0.02
+        eef_displacement : float = 0.02,
+        out_of_boundary_penalty: float = 0.0,
     ):
         """
         Args:
@@ -44,6 +45,9 @@ class ManipulatorEnv(gym.Env):
         - use_wrist_cam: whether to use the wrist camera
         - reward_fn: reward function: Given an obs return a float of the reward
         - done_fn: function to check if the episode should terminate or truncate. return (term, trunc)
+        - eef_displacement: the displacement of the eef in the action space
+        - out_of_boundary_penalty: penalty for going out of the boundary (-ve reward)
+           (this should be a negative value.)
 
         We would define the action space as a such [dx, dy, dz, drx, dry, drz, abs gripper]
 
@@ -97,7 +101,10 @@ class ManipulatorEnv(gym.Env):
         self._state_encoding = state_encoding
         self._use_wrist_cam = use_wrist_cam
         self.manipulator_interface = manipulator_interface
+        
+        # TODO: move this out as another gym.wrapper
         self.workspace_boundary = np.array(workspace_boundary)
+        self.out_of_boundary_penalty = out_of_boundary_penalty
 
     def step(self, action: np.ndarray) -> tuple:
         obs = self._get_obs()
@@ -114,6 +121,7 @@ class ManipulatorEnv(gym.Env):
 
             if np.any(clip_low > 0) or np.any(clip_high < 0):
                 print("Warning: Action out of bounds. Clipping to workspace boundary.")
+                reward -= self.out_of_boundary_penalty
 
             # print("Clip Range", clip_low, clip_high)
             action[0:3] = np.clip(action[0:3], clip_low, clip_high)

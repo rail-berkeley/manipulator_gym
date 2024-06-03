@@ -105,7 +105,7 @@ class ManipulatorEnv(gym.Env):
         # TODO: move this out as another gym.wrapper
         self.workspace_boundary = np.array(workspace_boundary)
         self.out_of_boundary_penalty = out_of_boundary_penalty
-        self.prev_state = None
+        self._prev_state = None
 
     def step(self, action: np.ndarray) -> tuple:
         # Default values
@@ -114,9 +114,9 @@ class ManipulatorEnv(gym.Env):
         reward = 0.0 if self._reward_fn is None else self._reward_fn(obs)
 
         # Handle robot actions if out of boundary
-        if self.prev_state is not None:
-            clip_low = self.workspace_boundary[0] - self.prev_state[0:3]
-            clip_high = self.workspace_boundary[1] - self.prev_state[0:3]
+        if self._prev_state is not None:
+            clip_low = self.workspace_boundary[0] - self._prev_state[0:3]
+            clip_high = self.workspace_boundary[1] - self._prev_state[0:3]
 
             if np.any(clip_low > 0) or np.any(clip_high < 0):
                 print("Warning: Action out of bounds. Clipping to workspace boundary.")
@@ -131,22 +131,18 @@ class ManipulatorEnv(gym.Env):
             terminal, trunc = self._done_fn(obs)
 
         obs = self._get_obs()
-        self._update_state(obs)
+        self._prev_state = obs.get('state', None)
 
         return obs, reward, terminal, trunc, {}
 
     def reset(self, **kwargs) -> tuple:
         self.manipulator_interface.reset(**kwargs)
         obs = self._get_obs()
-        self._update_state(obs)
+        self._prev_state = obs.get('state', None)
         return obs, {}
 
     def obs(self):
         return self._get_obs()
-
-    def _update_state(self, obs: Dict):
-        if 'state' in obs:
-            self.prev_state = obs['state']
 
     def _get_obs(self):
         d = {

@@ -36,6 +36,7 @@ class ManipulatorEnv(gym.Env):
         done_fn: Optional[Callable[[Dict], tuple]] = None,
         eef_displacement: float = 0.02,
         out_of_boundary_penalty: float = 0.0,
+        step_delay: float = 0.1,
     ):
         """
         Args:
@@ -100,6 +101,7 @@ class ManipulatorEnv(gym.Env):
         self._done_fn = done_fn
         self._state_encoding = state_encoding
         self._use_wrist_cam = use_wrist_cam
+        self._step_delay = step_delay
         self.manipulator_interface = manipulator_interface
 
         # TODO: move this out as another gym.wrapper
@@ -112,6 +114,7 @@ class ManipulatorEnv(gym.Env):
         terminal = False
         trunc = False
         reward = 0.0 if self._reward_fn is None else self._reward_fn(obs)
+        start_time = time.time()
 
         # Handle robot actions if out of boundary
         if self._prev_state is not None:
@@ -129,6 +132,9 @@ class ManipulatorEnv(gym.Env):
 
         if self._done_fn is not None:
             terminal, trunc = self._done_fn(obs)
+
+        # implicit delay to ensure obs is queried after "step_delay" seconds
+        time.sleep(max(0, self._step_delay - (time.time() - start_time)))
 
         obs = self._get_obs()
         self._prev_state = obs.get('state', None)

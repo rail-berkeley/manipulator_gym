@@ -140,6 +140,8 @@ class WidowXSimInterface:
         img_arr = img_arr[:, :, :3]
         img_arr = np.array(img_arr, dtype=np.uint8)
         return img_arr
+        # return np.zeros((self.image_size[0], self.image_size[1], 3))
+        # return None
 
     def step_action(self, action: np.ndarray) -> bool:
         """

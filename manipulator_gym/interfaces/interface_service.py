@@ -8,6 +8,7 @@ from agentlace.internal.utils import mat_to_jpeg, jpeg_to_mat
 
 from manipulator_gym.interfaces.base_interface import ManipulatorInterface
 from typing import Optional
+import cv2
 
 
 # These describes the ports and API keys used in the agentlace server
@@ -107,12 +108,15 @@ class ManipulatorInterfaceServer:
     def __init__(self,
                  manipulator_interface: ManipulatorInterface,
                  port: int = 5556,
+                 resize_img: Optional[List[int]] = None
                  ):
         """
         Provide the manipulator interface to the server.
         args:
             manipulator_interface: the interface to the robot
             port: the port number to run the server
+            resize_img: resize the img before sending to the client for 
+                        lower data transfer, default is None
         """
         super().__init__()
         self._manipulator_interface = manipulator_interface
@@ -128,6 +132,7 @@ class ManipulatorInterfaceServer:
             # hide all logs
             log_level=logging.CRITICAL,
         )
+        self._resize_img = resize_img
 
     def start(self, threaded: bool = False):
         """
@@ -141,15 +146,24 @@ class ManipulatorInterfaceServer:
 
     def __observe(self, types: list) -> dict:
         # we will default return the full observation
-        # NOTE: we convert img to jpeg for lower data transfer
+        # NOTE: we resize and convert img to jpeg for lower data transfer
+        def resize_img_fn(img):
+            if self._resize_img is not None:
+                img = cv2.resize(img, tuple(self._resize_img))
+            return img
+
         obs = {
             "eef_pose": self._manipulator_interface.eef_pose,
             "gripper_state": self._manipulator_interface.gripper_state,
-            "primary_img": mat_to_jpeg(self._manipulator_interface.primary_img),
+            "primary_img": mat_to_jpeg(
+                resize_img_fn(self._manipulator_interface.primary_img)
+            ),
         }
         # Add wrist image to the observation if available
         if self._manipulator_interface.wrist_img is not None:
-            obs["wrist_img"] = mat_to_jpeg(self._manipulator_interface.wrist_img)
+            obs["wrist_img"] = mat_to_jpeg(
+                resize_img_fn(self._manipulator_interface.wrist_img)
+            )
         return obs
 
     def __action(self, type: str, req_payload) -> dict:

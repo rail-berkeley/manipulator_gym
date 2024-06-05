@@ -8,6 +8,8 @@ import time
 import argparse
 import matplotlib.pyplot as plt
 
+np.set_printoptions(precision=2)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--rlds_dir", type=str, default="test_log2")
@@ -19,16 +21,12 @@ if __name__ == '__main__':
 
     ds_builder = tfds.builder_from_directory(args.rlds_dir)
     dataset = ds_builder.as_dataset(split='all')
-    
+
     if args.replay:
         from manipulator_gym.manipulator_env import ManipulatorEnv
         from manipulator_gym.interfaces.interface_service import ActionClientInterface
         env = ManipulatorEnv(manipulator_interface=ActionClientInterface(host=args.ip))
 
-    # print len of dataset
-    # print("size of dataset", len(list(dataset)))
-    # assert len(list(dataset)) == num_of_episodes, f"There should be 3 episodes in the dataset"
-    # dataset = dataset.repeat().shuffle(1).batch(1)
     ds_length = len(list(dataset))
     dataset = dataset.take(ds_length)
     it = iter(dataset)
@@ -37,36 +35,36 @@ if __name__ == '__main__':
         episode = next(it)
         print("episode: ", i)
         steps = episode['steps']
-        # for step in steps:
-        #     img = step['observation']['image_primary']
-        #     img = np.array(img)
-        #     cv2.imshow("img", img)
-        #     cv2.waitKey(10)
-        #     break
-        # continue
         print("key in a traj: ", episode.keys())
 
         prim_img_buffer = []
         wrist_img_buffer = []
-        
+
         if args.replay:
             env.reset()
-        
+
         for step in steps:
-            print(step['observation'].keys())
-            # print(step["action"])
-            # print(" - state: ", step['observation']['state'])
+            # print(step['observation'].keys())
+            print(" - action: ", step["action"])
+            print(" - state: ", step['observation']['state'])
+            print(" - lang: ", step["language_text"])
 
             if args.show_img:
-                img = step['observation']['image_primary']
-                img = np.array(img)
-                cv2.imshow("img", img)
+                for im_key in ['image_primary', 'image_wrist']:
+                    if im_key not in step['observation']:
+                        continue
+
+                    img = step['observation'][im_key]
+                    img = np.array(img)
+                    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                    cv2.imshow(im_key, img)
+                    cv2.waitKey(10)
                 cv2.waitKey(10)
-            
+
             if args.show_figures:
                 prim_img_buffer.append(step['observation']['image_primary'])
                 wrist_img_buffer.append(step['observation']['image_wrist'])
-            
+
             if args.show_figures and len(prim_img_buffer) == 10:
                 # show both images in matplot lib with 2 rows and 10 columns
                 fig, axs = plt.subplots(2, 10)
@@ -76,7 +74,7 @@ if __name__ == '__main__':
                 plt.show()
                 prim_img_buffer = []
                 wrist_img_buffer = []
-                
+
             if args.replay:
                 action = step['action']
                 print("replaying action: ", action)

@@ -24,6 +24,8 @@ if __name__ == "__main__":
                         help='camera id it is used in the interface')
     parser.add_argument('--non_blocking', action='store_true',
                         help='run the environment with non_blocking control')
+    parser.add_argument('--resize_img', type=int, nargs=2, default=None,
+                        help='resize the image before sending to the client')
     args = parser.parse_args()
 
     # set logging to warning
@@ -54,6 +56,7 @@ if __name__ == "__main__":
     # start the agentlace server
     server = ManipulatorInterfaceServer(
         manipulator_interface=interface,
+        resize_img=args.resize_img,
     )
 
     server.start()

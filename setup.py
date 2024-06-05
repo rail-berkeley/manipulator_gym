@@ -10,9 +10,9 @@ setup(
     packages=find_packages(),
     license='MIT',
     install_requires=[
-        'numpy',
-        'gym>=0.26.0',
-        "kinpy"
+        'numpy==1.24.3', # TODO: I changed these, might need to change it back
+        'gym >= 0.26',
+        'kinpy',
         # Add any other dependencies here
     ],
 )

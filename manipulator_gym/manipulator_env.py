@@ -7,6 +7,7 @@ import time
 import cv2
 from manipulator_gym.interfaces.base_interface import ManipulatorInterface
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
+from manipulator_gym.utils.gym_wrappers import ClipActionBoxBoundary
 from enum import IntEnum
 from typing import Optional, Dict, Callable
 
@@ -29,20 +30,22 @@ class ManipulatorEnv(gym.Env):
     def __init__(
         self,
         manipulator_interface: ManipulatorInterface,
-        workspace_boundary=np.array([[-9., -9., -9.],  [9., 9., 9.]]),
         state_encoding=StateEncoding.POS_EULER,
         use_wrist_cam: bool = False,
         reward_fn: Optional[Callable[[Dict], float]] = None,
         done_fn: Optional[Callable[[Dict], tuple]] = None,
+        eef_displacement: float = 0.02,
+        step_delay: float = 0.1,
     ):
         """
         Args:
         - manipulator_interface: interface to the manipulator
-        - workspace_boundary: the boundary of the eef workspace in abs coordinates
         - state_encoding: the state encoding of the observation
         - use_wrist_cam: whether to use the wrist camera
         - reward_fn: reward function: Given an obs return a float of the reward
         - done_fn: function to check if the episode should terminate or truncate. return (term, trunc)
+        - eef_displacement: the displacement of the eef in the action space
+
 
         We would define the action space as a such [dx, dy, dz, drx, dry, drz, abs gripper]
 
@@ -81,54 +84,51 @@ class ManipulatorEnv(gym.Env):
                 dtype=np.uint8,
             )
 
-        displacement = 0.02
+        self._eef_displacement = eef_displacement
+
+        action_low = np.ones(
+            manipulator_interface.step_action_shape) * -eef_displacement
+        action_high = np.ones(
+            manipulator_interface.step_action_shape) * eef_displacement
+        # NOTE: gripper has a different range [0, 1]
+        action_low[-1], action_high[-1] = 0.0, 1.0
+
         self.action_space = gym.spaces.Box(
-            low=np.ones(manipulator_interface.step_action_shape)*-displacement,
-            high=np.ones(manipulator_interface.step_action_shape)*displacement,
-            dtype=np.float32
-        )
+            low=action_low, high=action_high, dtype=np.float32)
 
         print("action space: ", self.action_space)
         print("observation space: ", self.observation_space)
         print("-"*50)
+
         self._reward_fn = reward_fn
         self._done_fn = done_fn
         self._state_encoding = state_encoding
         self._use_wrist_cam = use_wrist_cam
+        self._step_delay = step_delay
         self.manipulator_interface = manipulator_interface
-        self.workspace_boundary = np.array(workspace_boundary)
 
     def step(self, action: np.ndarray) -> tuple:
-        obs = self._get_obs()
-
         # Default values
         terminal = False
         trunc = False
         reward = 0.0 if self._reward_fn is None else self._reward_fn(obs)
+        start_time = time.time()
 
-        # Handle Robot Actions
-        if 'state' in obs:
-            in_boundary = self._check_if_within_boundary(obs['state'][:3])
-            if in_boundary:
-                self.manipulator_interface.step_action(action)
-            else:
-                print("Eef Out of boundary")
-                action[0] = np.clip(action[0], self.workspace_boundary[0, 0], self.workspace_boundary[1, 0])
-                action[1] = np.clip(action[1], self.workspace_boundary[0, 1], self.workspace_boundary[1, 1])
-                action[2] = np.clip(action[2], self.workspace_boundary[0, 2], self.workspace_boundary[1, 2])
-                self.manipulator_interface.step_action(action)
-        else:
-            self.manipulator_interface.step_action(action)
+        action[0:3] = np.clip(
+            action[0:3], -self._eef_displacement, self._eef_displacement)
+        self.manipulator_interface.step_action(action)
 
         if self._done_fn is not None:
             terminal, trunc = self._done_fn(obs)
 
+        # implicit delay to ensure obs is queried after "step_delay" seconds
+        time.sleep(max(0, self._step_delay - (time.time() - start_time)))
+        obs = self._get_obs()
         return obs, reward, terminal, trunc, {}
 
     def reset(self, **kwargs) -> tuple:
         self.manipulator_interface.reset(**kwargs)
-        obs = self._get_obs()
-        return obs, {}
+        return self._get_obs(), {}
 
     def obs(self):
         return self._get_obs()
@@ -157,13 +157,6 @@ class ManipulatorEnv(gym.Env):
                 d['image_wrist'] = img_wrist
         return d
 
-    def _check_if_within_boundary(self, cartesian_coord: np.ndarray) -> bool:
-        """Check if the robot state is within the boundary"""
-        if np.any(cartesian_coord < self.workspace_boundary[0, :]):
-            return False
-        elif np.any(cartesian_coord > self.workspace_boundary[1, :]):
-            return False
-        return True
 
 ##############################################################################
 
@@ -185,7 +178,8 @@ if __name__ == '__main__':
                         default='localhost', help='host of the client')
     parser.add_argument('--log_dir', type=str,
                         default=None, help='log the data to the directory')
-    parser.add_argument('--show_img', action='store_true', help='show the image')
+    parser.add_argument('--show_img', action='store_true',
+                        help='show the image')
     args = parser.parse_args()
 
     if args.test:
@@ -208,6 +202,11 @@ if __name__ == '__main__':
         raise ValueError("Please specify the interface")
 
     env = ManipulatorEnv(_interface)
+    env = ClipActionBoxBoundary(
+        env,
+        workspace_boundary=np.array([[-0.9, -9., -9.],
+                                     [0.9, 9., 9.]]),
+    )
 
     if args.log_dir:
         # this will log the data to the log_dir
@@ -225,7 +224,8 @@ if __name__ == '__main__':
 
     done = False
     trunc = False
-    action = np.array([0.01, 0.00, 0.00, 0.00, 0.0, 0.0, 1.0], dtype=np.float32)
+    action = np.array([0.01, 0.00, 0.00, 0.00, 0.0,
+                      0.0, 1.0], dtype=np.float32)
 
     for eps in range(3):
         obs, _ = env.reset()

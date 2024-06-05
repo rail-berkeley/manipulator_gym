@@ -4,10 +4,12 @@ import cv2
 from typing import Dict, Tuple
 import logging
 
+
 class ConvertState2Proprio(gym.Wrapper):
     """
     convert dict key 'state' to 'proprio' to comply to bridge_dataset stats
     """
+
     def __init__(self, env):
         super().__init__(env)
         self.observation_space = gym.spaces.Dict()
@@ -35,6 +37,7 @@ class ResizeObsImageWrapper(gym.Wrapper):
     """
     resize imags in obs to comply to octo model input
     """
+
     def __init__(self, env, resize_size: Dict[str, Tuple[int, int]]):
         super().__init__(env)
         self.resize_size = resize_size
@@ -54,7 +57,8 @@ class ResizeObsImageWrapper(gym.Wrapper):
         # else print warning
         for key in self.resize_size:
             if key not in self.env.observation_space.spaces:
-                logging.warning(f"Key {key} not in observation_space, ignoring resize for {key}")
+                logging.warning(
+                    f"Key {key} not in observation_space, ignoring resize for {key}")
 
     def step(self, action):
         obs, reward, done, trunc, info = self.env.step(action)
@@ -65,9 +69,56 @@ class ResizeObsImageWrapper(gym.Wrapper):
         obs, info = self.env.reset(**kwargs)
         obs = self._resize_keys_in_obs(obs)
         return obs, info
-    
+
     def _resize_keys_in_obs(self, obs):
         for key in self.resize_size:
             if key in obs:
                 obs[key] = cv2.resize(obs[key], self.resize_size[key])
         return obs
+
+
+class ClipActionBoxBoundary(gym.Wrapper):
+    """
+    clip the action to the boundary, ensure ["state"] is provided in obs
+    """
+
+    def __init__(self,
+                 env: gym.Env,
+                 workspace_boundary: np.array,
+                 out_of_boundary_penalty: float = 0.0,
+                 ):
+        """
+        Args:
+        - env: gym environment
+        - workspace_boundary: the boundary of the eef workspace in abs coordinates
+        - out_of_boundary_penalty: penalty for going out of the boundary (-ve reward)
+           (this should be a negative value.)
+        """
+        super().__init__(env)
+        self.workspace_boundary = workspace_boundary
+        self._prev_state = None
+        self.out_of_boundary_penalty = out_of_boundary_penalty
+
+        assert "state" in self.env.observation_space.spaces, "state not in observation space"
+
+    def step(self, action):
+        penalty = 0.0
+        if self._prev_state is not None:
+            clip_low = self.workspace_boundary[0] - self._prev_state[0:3]
+            clip_high = self.workspace_boundary[1] - self._prev_state[0:3]
+
+            if np.any(clip_low > 0) or np.any(clip_high < 0):
+                print("Warning: Action out of bounds. Clipping to workspace boundary.")
+                penalty = self.out_of_boundary_penalty
+
+            action[0:3] = np.clip(action[0:3], clip_low, clip_high)
+
+        obs, reward, done, trunc, info = self.env.step(action)
+        reward -= penalty
+        self._prev_state = obs["state"]
+        return obs, reward, done, trunc, info
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        self._prev_state = obs["state"]
+        return obs, info

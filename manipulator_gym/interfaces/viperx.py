@@ -11,6 +11,8 @@ from manipulator_gym.utils.utils import convert_img, \
 from interbotix_xs_modules.arm import InterbotixManipulatorXS
 
 
+np.set_printoptions(precision=3, suppress=True)
+
 ##############################################################################
 
 class ViperXInterface(ManipulatorInterface):
@@ -56,6 +58,8 @@ class ViperXInterface(ManipulatorInterface):
         # https://github.com/Interbotix/interbotix_ros_toolboxes/blob/0c739cdab1dbab03d79e752b43fa3db14d5bb15e/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/gripper.py#L62
         gripper_pos = \
             self._gripper.core.joint_states.position[self._gripper.left_finger_index]
+        # NOTE: explicitly scale the value of the gripper pos
+        gripper_pos = (gripper_pos - 0.01) / (0.08 - 0.01)
         return gripper_pos
 
     # override
@@ -75,6 +79,7 @@ class ViperXInterface(ManipulatorInterface):
         else:
             print("close gripper")
             self._gripper.close(delay=0.1)
+        print("action", action)
         return True
 
     def move_eef(self, pose: np.ndarray) -> bool:
@@ -100,12 +105,19 @@ class ViperXInterface(ManipulatorInterface):
             self._gripper.close(delay=0.1)
         return True
 
-    def reset(self, reset_pose=True) -> bool:
+    def reset(self,
+              reset_pose=True,
+              target_state=np.array([0.26, 0.0, 0.26, 0.0, math.pi/2, 0.0, 0.0]),
+        ) -> bool:
         """Override function from base class"""
         print("Reset robot interface, reset to home pose?: ", reset_pose)
         if reset_pose:
-            self.move_eef(np.array([0.26, 0.0, 0.26, 0.0, math.pi/2, 0.0]))
-            self._gripper.open()
+            print("Moving to target state: ", target_state)
+            if target_state[6] > 0.5:
+                self._gripper.open()
+            else:
+                self._gripper.close()
+            self.move_eef(target_state[:6])
         return True
 
     def _update_primary_cam(self, img_msg):

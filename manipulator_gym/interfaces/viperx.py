@@ -113,11 +113,11 @@ class ViperXInterface(ManipulatorInterface):
         print("Reset robot interface, reset to home pose?: ", reset_pose)
         if reset_pose:
             print("Moving to target state: ", target_state)
-            self.move_eef(target_state[:6])
             if target_state[6] > 0.5:
                 self._gripper.open()
             else:
-                self._gripper.open()
+                self._gripper.close()
+            self.move_eef(target_state[:6])
         return True
 
     def _update_primary_cam(self, img_msg):

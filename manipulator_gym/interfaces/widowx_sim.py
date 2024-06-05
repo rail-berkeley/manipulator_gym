@@ -130,6 +130,7 @@ class WidowXSimInterface:
             """default return blank img"""
             return np.zeros((self.image_size[0], self.image_size[1], 3), dtype=np.uint8)
 
+        # NOTE: experimental feature to use wrist camera
         img_arr = p.getCameraImage(
             height=self.image_size[0],
             width=self.image_size[1],
@@ -140,7 +141,6 @@ class WidowXSimInterface:
         img_arr = img_arr[:, :, :3]
         img_arr = np.array(img_arr, dtype=np.uint8)
         return img_arr
-        # return np.zeros((self.image_size[0], self.image_size[1], 3))
         # return None
 
     def step_action(self, action: np.ndarray) -> bool:

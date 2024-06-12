@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='manipulator_gym',
-    version='0.1.0',
+    version='0.1.1',
     description='A gym environment for manipulator robots with common abstracted interfaces.',
     author='youliangtan',
     author_email='tan_you_liang@hotmail.com',

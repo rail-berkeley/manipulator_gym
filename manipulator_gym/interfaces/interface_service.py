@@ -1,6 +1,6 @@
 import numpy as np
 import time
-from typing import Optional, List
+from typing import Optional, List, Any
 import logging
 
 from agentlace.action import ActionClient, ActionServer, ActionConfig
@@ -14,7 +14,8 @@ import cv2
 # These describes the ports and API keys used in the agentlace server
 DefaultActionConfig = ActionConfig(
     port_number=5556,
-    action_keys=["reset", "step_action", "move_eef", "move_gripper"],
+    action_keys=["reset", "step_action",
+                 "move_eef", "move_gripper", "custom_fn"],
     observation_keys=["eef_pose", "gripper_state", "primary_img", "wrist_img"],
     broadcast_port=5556 + 1,
 )
@@ -27,7 +28,7 @@ class ActionClientInterface(ManipulatorInterface):
                  host: str = "localhost",
                  port: int = 5556,
                  obs_timeout: float = 0.05
-        ):
+                 ):
         """
         Initialize the action client interface.
         Args:
@@ -85,6 +86,18 @@ class ActionClientInterface(ManipulatorInterface):
         if res and "status" in res and res["status"]:
             return True
         return False
+
+    def custom_fn(self, fn_name: str, **kwargs) -> Any:
+        """
+        Experimental function.
+        This is a generic method to call any custom function
+        in the interface.
+        """
+        res = self._client.act("custom_fn",
+                               {"fn_name": fn_name, "kwargs": kwargs})
+        if res and "status" in res and res["status"]:
+            return res.get("res_payload", None)
+        return res
 
     def _update_full_obs(self):
         """This avoids calling the obs() method multiple times."""
@@ -175,6 +188,16 @@ class ManipulatorInterfaceServer:
             status = self._manipulator_interface.move_eef(req_payload)
         elif type == "move_gripper":
             status = self._manipulator_interface.move_gripper(req_payload)
+        elif type == "custom_fn":
+            # **Call a custom_fn or method of the interface
+            fn_name = req_payload["fn_name"]
+            if hasattr(self._manipulator_interface, fn_name):
+                res_payload = getattr(self._manipulator_interface, fn_name)(
+                    **req_payload["kwargs"])
+                return {"status": True, "res_payload": res_payload}
+
+            print(f"Method {fn_name} not found in the interface")
+            return {"status": False, "error": "Method not found"}
         else:
             raise ValueError(f"Invalid action type: {type}")
         print(f"Action: {type} status: {status}")

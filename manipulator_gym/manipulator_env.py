@@ -45,7 +45,7 @@ class ManipulatorEnv(gym.Env):
         - reward_fn: reward function: Given an obs return a float of the reward
         - done_fn: function to check if the episode should terminate or truncate. return (term, trunc)
         - eef_displacement: the displacement of the eef in the action space
-
+        - step_delay: implicit delay to ensure obs is queried after "step_delay" seconds
 
         We would define the action space as a such [dx, dy, dz, drx, dry, drz, abs gripper]
 

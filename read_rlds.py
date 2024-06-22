@@ -43,11 +43,13 @@ if __name__ == '__main__':
         if args.replay:
             env.reset()
 
-        for step in steps:
+        for j, step in enumerate(steps):
             # print(step['observation'].keys())
-            print(" - action: ", step["action"])
-            print(" - state: ", step['observation']['state'])
-            print(" - lang: ", step["language_text"])
+            print(f" [step {j}] action: ", step["action"])
+            print(f" [step {j}] state: ", step['observation']['state'])
+
+            if "language_text" in step:
+                print(f" [step {j}] lang: ", step["language_text"])
 
             if args.show_img:
                 for im_key in ['image_primary', 'image_wrist']:
@@ -56,6 +58,11 @@ if __name__ == '__main__':
 
                     img = step['observation'][im_key]
                     img = np.array(img)
+
+                    # brute force to handle the batch dimension
+                    if len(img.shape) == 4:
+                        img = img[0]
+
                     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
                     cv2.imshow(im_key, img)
                     cv2.waitKey(10)

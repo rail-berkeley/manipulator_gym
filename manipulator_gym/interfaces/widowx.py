@@ -30,12 +30,14 @@ class WidowXInterface(ViperXInterface):
         self._wrist_img = np.array((480, 640, 3), dtype=np.uint8)
         self.blocking_control = blocking_control
 
-    def reset(self, reset_pose=True) -> bool:
+    def reset(self, reset_pose=True, go_sleep=False) -> bool:
         """Override function from base class"""
         print("Reset robot interface, reset to home pose?: ", reset_pose)
         if reset_pose:
             self.move_eef(np.array([0.258325, 0, 0.19065, 0, math.pi/2, 0]))
             self._gripper.open()
+            if go_sleep:
+                self._arm.go_to_sleep_pose()
         return True
 
     def _move_eef_relative(self, dx=0, dy=0, dz=0, drx=0, dry=0, drz=0):

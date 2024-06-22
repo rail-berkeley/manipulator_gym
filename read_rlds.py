@@ -43,13 +43,13 @@ if __name__ == '__main__':
         if args.replay:
             env.reset()
 
-        for step in steps:
+        for j, step in enumerate(steps):
             # print(step['observation'].keys())
-            print(" - action: ", step["action"])
-            print(" - state: ", step['observation']['state'])
+            print(f" [step {j}] action: ", step["action"])
+            print(f" [step {j}] state: ", step['observation']['state'])
 
             if "language_text" in step:
-                print(" - lang: ", step["language_text"])
+                print(f" [step {j}] lang: ", step["language_text"])
 
             if args.show_img:
                 for im_key in ['image_primary', 'image_wrist']:

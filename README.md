@@ -62,7 +62,7 @@ server = ManipulatorInterfaceServer(manipulator_interface=interface)
 server.start()
 ```
 
-2. In `slient.py`. Then run the env with the client interface
+2. In `client.py`. Then run the env with the client interface
 
 ```python
 from manipulator_gym.manipulator_env import ManipulatorEnv
@@ -95,6 +95,14 @@ Run the "Robot Server"
 ```bash
 python manipulator_server.py --widowx_sim
 ```
+
+Run Teleoperation to collect control the robot
+```bash
+python manipulator_teleop.py # --ip IP
+```
+
+**Provide `--use_spacemouse` to use the [spacemouse](https://github.com/JakubAndrysek/pyspacemouse) for teleoperation
+
 
 Run the "Policy Client":
 ```bash

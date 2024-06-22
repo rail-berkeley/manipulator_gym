@@ -115,9 +115,9 @@ class ViperXInterface(ManipulatorInterface):
         if reset_pose:
             print("Moving to target state: ", target_state)
             if target_state[6] > 0.5:
-                self._gripper.open()
+                self._gripper.open(delay=0.1)
             else:
-                self._gripper.close()
+                self._gripper.close(delay=0.1)
             self.move_eef(target_state[:6])
             if go_sleep:
                 self._arm.go_to_sleep_pose()

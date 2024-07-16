@@ -39,6 +39,7 @@ class WidowXInterface(ViperXInterface):
         else:
             print("Using camera ids: ", cam_ids)
             assert len(cam_ids) <= 2, "Only 2 cameras are supported"
+            self._caps = []
             for id in cam_ids:
                 self._caps.append(cv2.VideoCapture(id))
 
@@ -48,7 +49,7 @@ class WidowXInterface(ViperXInterface):
 
     @property
     def primary_img(self) -> np.ndarray:
-        if self._caps is not None:
+        if self._caps is None:
             return self._side_img
         else:
             ret, frame = self._caps[0].read()
@@ -60,7 +61,7 @@ class WidowXInterface(ViperXInterface):
 
     @property
     def wrist_img(self):
-        if self._caps is not None:
+        if self._caps is None:
             return self._wrist_img
         elif len(self._caps) < 2:  # no idx 1
             return None
@@ -107,3 +108,27 @@ class WidowXInterface(ViperXInterface):
             blocking=self.blocking_control,
             custom_guess=self._arm.get_joint_commands(),
         )
+
+    def motor_status(self) -> np.ndarray:
+        """
+        Check if there are any hardware errors
+        
+        API is from:
+        https://github.com/Interbotix/interbotix_ros_toolboxes/blob/noetic/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/core.py
+        """
+        values = self._bot.robot_get_motor_registers(
+            "group", "all", "Hardware_Error_Status").values
+        int_value = np.array(values, dtype=np.uint8)
+        assert len(values) == 7, "Expecting 7 joints"
+        return int_value
+    
+    def reboot_motor(self, joint_name: str):
+        """
+        Reboot a single motor, provide the joint name
+        
+        Supported joint names:
+            - waist, shoulder, elbow, forearm_roll,
+            - wrist_angle, wrist_rotate, gripper, left_finger, right_finger
+        """
+        res = self._bot.robot_reboot_motors("single", joint_name, True, enable=True, smart_reboot=True)
+        return res

@@ -154,9 +154,10 @@ graph LR
     B <--agentlace--> C[Gym Env <-> Octo Policy]
 ```
 
-1. Run the robot driver (ROS2 example)
+1. Run the robot driver (Note the ros1 and ros2 launch commands)
 ```bash
-# ros1: roslaunch interbotix_xsarm_control xsarm_control.launch robot_model:=wx250
+# ros1:
+roslaunch interbotix_xsarm_control xsarm_control.launch robot_model:=wx250s use_rviz:=false
 # ros2 example:
 ros2 launch interbotix_xsarm_control xsarm_control.launch.py robot_model:=wx250s
 ```
@@ -164,6 +165,11 @@ ros2 launch interbotix_xsarm_control xsarm_control.launch.py robot_model:=wx250s
 2. Run the widowx/viperx server interface
 ```bash
 # choose viperx 
+
+# ros1
+python manipulator_server.py --widowx --use_cam_ids 
+
+# ros2
 python manipulator_server.py --widowx_ros2
 ```
 

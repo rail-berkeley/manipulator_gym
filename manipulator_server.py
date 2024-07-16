@@ -20,12 +20,10 @@ if __name__ == "__main__":
                         help='run the environment with the WidowX')
     parser.add_argument('--widowx_ros2', action='store_true',
                         help='run the environment with the WidowX ros2')
-    parser.add_argument('--cam_ids', type=int, nargs='+', default=[0],
+    parser.add_argument('--cam_ids', type=int, nargs='+', default=[],
                         help='camera ids to use for the interface')
     parser.add_argument('--non_blocking', action='store_true',
                         help='run the environment with non_blocking control')
-    parser.add_argument('--use_cam_ids', action='store_true',
-                        help='use the cam_ids to get the images')
     parser.add_argument('--resize_img', type=int, nargs=2, default=None,
                         help='resize the image before sending to the client')
     args = parser.parse_args()
@@ -42,7 +40,7 @@ if __name__ == "__main__":
         from manipulator_gym.interfaces.widowx import WidowXInterface
         print("Using WidowX interface")
         blocking = not args.non_blocking
-        cam_ids = args.cam_ids if args.use_cam_ids else None
+        cam_ids = args.cam_ids if len(args.cam_ids) > 0 else None
         interface = WidowXInterface(init_node=True, blocking_control=_blocking, cam_ids=cam_ids)
     elif args.widowx_sim:
         from manipulator_gym.interfaces.widowx_sim import WidowXSimInterface
@@ -51,8 +49,8 @@ if __name__ == "__main__":
     elif args.widowx_ros2:
         from manipulator_gym.interfaces.widowx_ros2 import WidowXRos2Interface
         print("Using WidowXRos2 interface")
-        # TODO: support multiple cam_ids
-        interface = WidowXRos2Interface(cam_id=args.cam_ids[0], blocking_control=_blocking)
+        assert 0 < len(args.cam_ids) <= 2, "should provide 1 or 2 camera ids"
+        interface = WidowXRos2Interface(cam_ids=args.cam_ids, blocking_control=_blocking)
     else:
         print("Using base test interface")
         interface = ManipulatorInterface()

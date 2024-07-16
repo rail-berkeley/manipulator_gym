@@ -17,17 +17,21 @@ class WidowXRos2Interface(ManipulatorInterface):
     https://github.com/Interbotix/interbotix_ros_toolboxes/blob/humble/interbotix_xs_toolbox/interbotix_xs_modules/interbotix_xs_modules/xs_robot/arm.py
     """
 
-    def __init__(self, cam_id=0, blocking_control=True):
+    def __init__(self, cam_ids=[0], blocking_control=True):
         self._bot = InterbotixManipulatorXS("wx250s", "arm", "gripper")
         self._arm = self._bot.arm
         self._gripper = self._bot.gripper
-        # print out available cameras
-        self.cap = cv2.VideoCapture(cam_id)  # Initialize the VideoCapture object
+        
+        print("Using camera ids: ", cam_ids)
+        self._caps = []
+        for id in cam_ids:
+            self._caps.append(cv2.VideoCapture(id)) # Initialize the VideoCapture object
+        assert len(self._caps) <= 2, "Only 2 cameras are supported"
         self.blocking_control = blocking_control
 
     @property
     def primary_img(self) -> np.ndarray:
-        ret, frame = self.cap.read()
+        ret, frame = self._caps[0].read()
         # If frame is read correctly ret is True
         if not ret:
             raise Exception("Can't receive frame (stream end?). Exiting ...")
@@ -35,7 +39,14 @@ class WidowXRos2Interface(ManipulatorInterface):
 
     @property
     def wrist_img(self):
-        return None
+        if len(self._caps) < 2:
+            return None
+
+        ret, frame = self._caps[1].read()
+        # If frame is read correctly ret is True
+        if not ret:
+            raise Exception("Can't receive frame (stream end?). Exiting ...")
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     @property
     def eef_pose(self) -> np.ndarray:

@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 import cv2
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 import logging
 
 
@@ -32,6 +32,8 @@ class ConvertState2Proprio(gym.Wrapper):
         obs.pop("state")
         return obs, info
 
+
+##############################################################################
 
 class ResizeObsImageWrapper(gym.Wrapper):
     """
@@ -77,6 +79,8 @@ class ResizeObsImageWrapper(gym.Wrapper):
         return obs
 
 
+##############################################################################
+
 class ClipActionBoxBoundary(gym.Wrapper):
     """
     clip the action to the boundary, ensure ["state"] is provided in obs
@@ -85,33 +89,49 @@ class ClipActionBoxBoundary(gym.Wrapper):
     def __init__(self,
                  env: gym.Env,
                  workspace_boundary: np.array,
+                 rotation_limit: Optional[float] = None,
                  out_of_boundary_penalty: float = 0.0,
                  ):
         """
         Args:
         - env: gym environment
         - workspace_boundary: the boundary of the eef workspace in abs coordinates
+        - rotation_limit: limit the rotation of the eef in radian in [[-rpy], [+rpy]]
         - out_of_boundary_penalty: penalty for going out of the boundary (-ve reward)
            (this should be a negative value.)
         """
         super().__init__(env)
-        self.workspace_boundary = workspace_boundary
+        self._workspace_boundary = workspace_boundary
         self._prev_state = None
-        self.out_of_boundary_penalty = out_of_boundary_penalty
+        self._out_of_boundary_penalty = out_of_boundary_penalty
+        self._rotation_limit = rotation_limit
 
         assert "state" in self.env.observation_space.spaces, "state not in observation space"
 
     def step(self, action):
+        """standard gym step function"""
         penalty = 0.0
         if self._prev_state is not None:
-            clip_low = self.workspace_boundary[0] - self._prev_state[0:3]
-            clip_high = self.workspace_boundary[1] - self._prev_state[0:3]
+            clip_low = self._workspace_boundary[0] - self._prev_state[0:3]
+            clip_high = self._workspace_boundary[1] - self._prev_state[0:3]
 
             if np.any(clip_low > 0) or np.any(clip_high < 0):
                 print("Warning: Action out of bounds. Clipping to workspace boundary.")
-                penalty = self.out_of_boundary_penalty
+                penalty = self._out_of_boundary_penalty
 
             action[0:3] = np.clip(action[0:3], clip_low, clip_high)
+
+            # Check rotation limit if limit is provided
+            if self._rotation_limit is not None:
+                r_clip_low = self._rotation_limit[0] - self._prev_state[3:6]
+                r_clip_high = self._rotation_limit[1] - self._prev_state[3:6]
+
+                if np.any(r_clip_low > 0) or np.any(r_clip_high < 0):
+                    print(
+                        "Warning: Rotation out of bounds. Clipping to rotation boundary.")
+                    penalty = self._out_of_boundary_penalty
+
+                action[3:6] = np.clip(action[3:6], r_clip_low, r_clip_high)
 
         obs, reward, done, trunc, info = self.env.step(action)
         reward -= penalty
@@ -119,6 +139,7 @@ class ClipActionBoxBoundary(gym.Wrapper):
         return obs, reward, done, trunc, info
 
     def reset(self, **kwargs):
+        """standard gym reset function"""
         obs, info = self.env.reset(**kwargs)
         self._prev_state = obs["state"]
         return obs, info

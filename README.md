@@ -62,7 +62,7 @@ server = ManipulatorInterfaceServer(manipulator_interface=interface)
 server.start()
 ```
 
-2. In `slient.py`. Then run the env with the client interface
+2. In `client.py`. Then run the env with the client interface
 
 ```python
 from manipulator_gym.manipulator_env import ManipulatorEnv
@@ -95,6 +95,14 @@ Run the "Robot Server"
 ```bash
 python manipulator_server.py --widowx_sim
 ```
+
+Run Teleoperation to collect control the robot
+```bash
+python manipulator_teleop.py # --ip IP
+```
+
+**Provide `--use_spacemouse` to use the [spacemouse](https://github.com/JakubAndrysek/pyspacemouse) for teleoperation
+
 
 Run the "Policy Client":
 ```bash
@@ -146,9 +154,10 @@ graph LR
     B <--agentlace--> C[Gym Env <-> Octo Policy]
 ```
 
-1. Run the robot driver (ROS2 example)
+1. Run the robot driver (Note the ros1 and ros2 launch commands)
 ```bash
-# ros1: roslaunch interbotix_xsarm_control xsarm_control.launch robot_model:=wx250
+# ros1:
+roslaunch interbotix_xsarm_control xsarm_control.launch robot_model:=wx250s use_rviz:=false
 # ros2 example:
 ros2 launch interbotix_xsarm_control xsarm_control.launch.py robot_model:=wx250s
 ```
@@ -156,7 +165,12 @@ ros2 launch interbotix_xsarm_control xsarm_control.launch.py robot_model:=wx250s
 2. Run the widowx/viperx server interface
 ```bash
 # choose viperx 
-python manipulator_server.py --widowx_ros2
+
+# ros1 [cam_ids is the USB camera id]
+python3 manipulator_server.py --widowx --cam_ids 0
+
+# ros2 [cam_ids is the USB camera id]
+python manipulator_server.py --widowx_ros2 --cam_ids 0
 ```
 
 3. Run the octo model on a different machine

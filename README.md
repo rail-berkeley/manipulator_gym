@@ -166,11 +166,11 @@ ros2 launch interbotix_xsarm_control xsarm_control.launch.py robot_model:=wx250s
 ```bash
 # choose viperx 
 
-# ros1
-python manipulator_server.py --widowx --use_cam_ids 
+# ros1 [cam_ids is the USB camera id]
+python3 manipulator_server.py --widowx --cam_ids 0
 
-# ros2
-python manipulator_server.py --widowx_ros2
+# ros2 [cam_ids is the USB camera id]
+python manipulator_server.py --widowx_ros2 --cam_ids 0
 ```
 
 3. Run the octo model on a different machine

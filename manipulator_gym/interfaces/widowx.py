@@ -112,23 +112,24 @@ class WidowXInterface(ViperXInterface):
     def motor_status(self) -> np.ndarray:
         """
         Check if there are any hardware errors
-        
+
         API is from:
         https://github.com/Interbotix/interbotix_ros_toolboxes/blob/noetic/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/core.py
         """
-        values = self._bot.robot_get_motor_registers(
+        values = self._bot.dxl.robot_get_motor_registers(
             "group", "all", "Hardware_Error_Status").values
         int_value = np.array(values, dtype=np.uint8)
         assert len(values) == 7, "Expecting 7 joints"
         return int_value
-    
+
     def reboot_motor(self, joint_name: str):
         """
         Reboot a single motor, provide the joint name
-        
+
         Supported joint names:
             - waist, shoulder, elbow, forearm_roll,
             - wrist_angle, wrist_rotate, gripper, left_finger, right_finger
         """
-        res = self._bot.robot_reboot_motors("single", joint_name, True, enable=True, smart_reboot=True)
+        res = self._bot.dxl.robot_reboot_motors(
+            "single", joint_name, enable=True, smart_reboot=True)
         return res

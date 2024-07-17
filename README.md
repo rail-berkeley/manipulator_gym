@@ -98,14 +98,14 @@ python read_rlds.py --show_img --rlds_dir log_dir/
 ```
 
 
-### 2. Keyboard Teleoperation
+### 2. Robot Teleoperation
 
 Run the "Robot Server" with a simulated widowx robot.
 ```bash
 python manipulator_server.py --widowx_sim
 ```
 
-Run Teleoperation script (action client) to control the robot with keyboard
+Run Teleoperation script (action client) to control the robot with keyboard. Provide IP for remote teleoperation.
 ```bash
 python teleop.py # --ip IP
 ```

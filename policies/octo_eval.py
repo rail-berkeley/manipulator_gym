@@ -80,9 +80,9 @@ def main(_):
     )
     # running rollouts
     for _ in range(100):
-        one_traj_data = np.array([])
         obs, info = env.reset()
-        # create task specification --> use model utility to create task dict with correct entries
+
+        # Create task specification --> use model utility to create task dict with correct entries
         language_instruction = [FLAGS.text_cond]
         task = model.create_tasks(texts=language_instruction)
         # task = model.create_tasks(goals={"image_primary": img})   # for goal-conditioned
@@ -107,11 +107,9 @@ def main(_):
             print(f"Step {i} with action size of {len(actions)}")
             # step env -- info contains full "chunk" of observations for logging
             # obs only contains observation for final step of chunk
-            one_traj_data = np.append(one_traj_data, {"action" : actions})
             obs, reward, done, trunc, info = env.step(actions)
             episode_return += reward
 
-        # np.save('octo_eval_traj' + str(i), one_traj_data)
         print(f"Episode return: {episode_return}")
 
 if __name__ == "__main__":

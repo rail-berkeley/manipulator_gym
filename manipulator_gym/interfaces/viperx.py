@@ -67,6 +67,7 @@ class ViperXInterface(ManipulatorInterface):
         """
         Override function from base class
         """
+        assert len(action) == 7, "action is not 7D"
         # move the end effector, Not that dz is up and down, dy is left and right
         self._move_eef_relative(dx=action[0],
                                 dy=action[1],

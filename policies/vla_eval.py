@@ -14,7 +14,7 @@ import cv2
 
 from manipulator_gym.manipulator_env import ManipulatorEnv
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
-
+from manipulator_gym.utils.gym_wrappers import ClipActionBoxBoundary
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("ip", "localhost", "IP address of the robot server.")
@@ -23,6 +23,7 @@ flags.DEFINE_string(
     "text_cond", "put the banana on the plate", "Language prompt for the task."
 )
 flags.DEFINE_string("lora_adapter_dir", None, "Path to the LORA adapter directory.")
+flags.DEFINE_bool("clip_actions", False, "Clip actions to 0.02")
 # Example lora_adapter_dir: "adapter-tmp/openvla-7b+serl_demos+b4+lr-2e-05+lora-r32+dropout-0.0+q-4bit/"
 
 
@@ -36,6 +37,7 @@ def main(_):
         manipulator_interface=ActionClientInterface(host=FLAGS.ip),
         # manipulator_interface=ManipulatorInterface(), # for testing
     )  # default doesn't use wrist cam
+    env = ClipActionBoxBoundary(env, workspace_boundary=[[0.0, -0.1, -0.5], [0.6, 0.5, 0.5]])
 
     # Load Processor & VLA
     processor = AutoProcessor.from_pretrained(
@@ -91,6 +93,11 @@ def main(_):
 
             print("--- VLA inference took %s seconds ---" % (time.time() - start_time))
             print(f" Step {i}: performing action: {action}")
+
+            if FLAGS.clip_actions:
+                action[:6] = np.clip(action[:6], -0.02, 0.02)
+                print(f"Clipped action: {action}")
+
             # step env -- info contains full "chunk" of observations for logging
             # obs only contains observation for final step of chunk
             obs, reward, done, trunc, info = env.step(action)

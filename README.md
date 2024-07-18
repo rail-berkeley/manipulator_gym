@@ -150,6 +150,8 @@ graph LR
 
 ☝️ This is what you expect to see when running the above commands.
 
+However, you would expect that the generalist policy would not work well in the simulation environment as it is not trained on the simulation data. 
+
 ---
 
 ## Interfaces

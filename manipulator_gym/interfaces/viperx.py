@@ -67,6 +67,7 @@ class ViperXInterface(ManipulatorInterface):
         """
         Override function from base class
         """
+        assert len(action) == 7, "action is not 7D"
         # move the end effector, Not that dz is up and down, dy is left and right
         self._move_eef_relative(dx=action[0],
                                 dy=action[1],
@@ -151,3 +152,11 @@ class ViperXInterface(ManipulatorInterface):
         xyz = T_sb[:3, 3]
         rpy = rotationMatrixToEulerAngles(T_sb[:3, :3])
         return np.concatenate([xyz, rpy])
+
+    def configure(self, **kwargs) -> bool:
+        """Provide a way to configure the robot in runtime"""
+        if "blocking_control" in kwargs:
+            print("Setting blocking control to: ", kwargs["blocking_control"])
+            assert isinstance(kwargs["blocking_control"], bool)
+            self.blocking_control = kwargs["blocking_control"]
+        return True

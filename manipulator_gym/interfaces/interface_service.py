@@ -14,7 +14,7 @@ import cv2
 # These describes the ports and API keys used in the agentlace server
 DefaultActionConfig = ActionConfig(
     port_number=5556,
-    action_keys=["reset", "step_action",
+    action_keys=["reset", "step_action", "configure",
                  "move_eef", "move_gripper", "custom_fn"],
     observation_keys=["eef_pose", "gripper_state", "primary_img", "wrist_img"],
     broadcast_port=5556 + 1,
@@ -83,6 +83,12 @@ class ActionClientInterface(ManipulatorInterface):
 
     def reset(self, **kwargs) -> bool:
         res = self._client.act("reset", kwargs)
+        if res and "status" in res and res["status"]:
+            return True
+        return False
+
+    def configure(self, **kwargs) -> bool:
+        res = self._client.act("configure", kwargs)
         if res and "status" in res and res["status"]:
             return True
         return False
@@ -182,6 +188,8 @@ class ManipulatorInterfaceServer:
     def __action(self, type: str, req_payload) -> dict:
         if type == "reset":
             status = self._manipulator_interface.reset(**req_payload)
+        elif type == "configure":
+            status = self._manipulator_interface.configure(**req_payload)
         elif type == "step_action":
             status = self._manipulator_interface.step_action(req_payload)
         elif type == "move_eef":

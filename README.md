@@ -22,11 +22,12 @@ This package provides a common gym-like environment for policy to interact with 
 
 ## Installations:
 
-- [pybullet](https://pypi.org/project/pybullet/): used in `widowx_sim`.
-- [octo](https://octo-models.github.io/): for the generalist robot policy
 - [agentlace](https://github.com/youliangtan/agentlace): for distributed robot agent interfaces
-- [oxe_envlogger](https://github.com/rail-berkeley/oxe_envlogger): for logging the data in RLDS format
-
+- [pybullet](https://pypi.org/project/pybullet/): used in `widowx_sim`. (Optional)
+- [oxe_envlogger](https://github.com/rail-berkeley/oxe_envlogger): for logging the data in RLDS format (Optional)
+- Robot Policies (Optional):
+  - [octo](https://octo-models.github.io/)
+  - [openvla](https://openvla.github.io/)
 
 ## Quick Start
 
@@ -45,12 +46,14 @@ interface = ManipulatorInterface()
 
 # 2. define the gym env, Done!
 env = ManipulatorEnv(interface=interface)
+
+# 3. Use the 'env' as standard gym env. E.g.: env.reset(), env.step(), etc.
 ```
 
 Then, you can use the gym env as you would with any other gym env. :partying_face: You can also use other `interfaces` to run different kinds of manipulators, e.g. `widowx`, `viperx`, `action_client-server`, etc.
 
 
-Alos, we can make the interface to be a server-client setup, to run the policy on a different process, or even machine. Create 2 seperate scripts `server.py` and `client.py`:
+Also, we can make the interface to be a server-client setup, to run the policy on a different process, or even machine. Create 2 seperate scripts `server.py` and `client.py`:
 
 1. In `server.py`. Run the interface as server
 
@@ -70,13 +73,18 @@ from manipulator_gym.interfaces.interface_service import ActionClientInterface
 
 interface = ActionClientInterface(host=FLAGS.ip)
 env = ManipulatorEnv(manipulator_interface=interface)
+
+# Use the 'env' as standard gym env. E.g.: env.reset(), env.step(), etc.
 ```
 
 Tada!
 
-### Run Examples
+## Run Examples
 
-First, we show how to run a simple sim env of a widowx robot, while enabling logging of rlds data.
+
+### 1. Run a scripted rollout on the robot
+
+How to run a simple sim env of a widowx robot, while enabling logging of rlds data.
 
 ```bash
 # This runs a sim env of the manipulator
@@ -89,26 +97,44 @@ To visualize logged data
 python read_rlds.py --show_img --rlds_dir log_dir/
 ```
 
-Also, we can run the octo model to evaluate the robot policy on the robot. This requires the octo model to be installed. Showcase a distributed "robot server" and "policy client" setup
+
+### 2. Robot Teleoperation
+
+Run the "Robot Server" with a simulated widowx robot.
+```bash
+python manipulator_server.py --widowx_sim
+```
+
+Run Teleoperation script (action client) to control the robot with keyboard. Provide IP for remote teleoperation.
+```bash
+python teleop.py # --ip IP
+```
+
+**Provide `--use_spacemouse` to use the [spacemouse](https://github.com/JakubAndrysek/pyspacemouse) for teleoperation
+
+### 3. Run a Robot policy
+
+Now, we will replace the `teleop.py` with a robot policy. 
 
 Run the "Robot Server"
 ```bash
 python manipulator_server.py --widowx_sim
 ```
 
-Run Teleoperation to collect control the robot
-```bash
-python manipulator_teleop.py # --ip IP
-```
-
-**Provide `--use_spacemouse` to use the [spacemouse](https://github.com/JakubAndrysek/pyspacemouse) for teleoperation
-
-
 Run the "Policy Client":
-```bash
-# --text_cond is the task condition, e.g. "put the red marker on the table"
-python octo_eval.py --ip IP_ADDRESS --show_img --text_cond "put the banana on the plate"
-```
+
+We provide 2 example generalist policies to evaluate a manipulation task with text conditioning:
+ - **Octo**: [octo](https://octo-models.github.io/)
+  ```bash
+  # --text_cond is the task condition, e.g. "put the red marker on the table"
+  python policies/octo_eval.py --ip IP_ADDRESS --show_img --text_cond "put the banana on the plate"
+  ```
+
+ - **OpenVLA**: [openvla](https://openvla.github.io/)
+  ```bash
+  # --text_cond is the task condition, e.g. "put the red marker on the table"
+  python policies/vla_eval.py --ip IP_ADDRESS --show_img --text_cond "put the banana on the plate"
+  ```
 
 Communication nodes looks like this:
 
@@ -124,6 +150,7 @@ graph LR
 
 ☝️ This is what you expect to see when running the above commands.
 
+However, you would expect that the generalist policy would not work well in the simulation environment as it is not trained on the simulation data. 
 
 ---
 
@@ -175,7 +202,7 @@ python manipulator_server.py --widowx_ros2 --cam_ids 0
 
 3. Run the octo model on a different machine
 ```bash
-python octo_eval.py --ip IP_ADDRESS --show_img --text_cond "PROVIDE YOUR TEXT TASK"
+python policies/octo_eval.py --ip IP_ADDRESS --show_img --text_cond "PROVIDE YOUR TEXT TASK"
 ```
 
 ---
@@ -201,6 +228,8 @@ Now finetune the model using the generated log files
 cd octo
 python scripts/finetune.py --config=../manipulator_gym/viperx_finetune_config.py --config.pretrained_path=hf://rail-berkeley/octo-small
 ```
+
+We can also use the collected RLDS for OpenVLA finetuning, check out the doc in [openvla](https://github.com/openvla/openvla/) for more details.
 
 ---
 

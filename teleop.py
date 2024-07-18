@@ -6,7 +6,8 @@ import cv2
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
 
 
-def print_yellow(x): return print("\033[93m {}\033[00m" .format(x))
+def print_yellow(x):
+    return print("\033[93m {}\033[00m".format(x))
 
 
 def show_video(interface):
@@ -41,6 +42,7 @@ def print_help(with_keyboard=True):
     print_yellow("    space: toggle gripper")
     print_yellow("    r: reset robot")
     print_yellow("    g: go to sleep")
+    print_yellow("    /: reboot mulfuction motor [experimental]")
     print_yellow("    q: quit")
 
 
@@ -48,12 +50,13 @@ def print_help(with_keyboard=True):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Teleoperation to a manipulator server')
-    parser.add_argument('--ip', type=str, default='localhost')
-    parser.add_argument('--port', type=int, default=5556)
-    parser.add_argument('--eef_displacement', type=float, default=0.01)
-    parser.add_argument('--use_spacemouse', action='store_true')
-    parser.add_argument('--no_rotation', action='store_true')
+        description="Teleoperation to a manipulator server"
+    )
+    parser.add_argument("--ip", type=str, default="localhost")
+    parser.add_argument("--port", type=int, default=5556)
+    parser.add_argument("--eef_displacement", type=float, default=0.01)
+    parser.add_argument("--use_spacemouse", action="store_true")
+    parser.add_argument("--no_rotation", action="store_true")
     args = parser.parse_args()
 
     interface = ActionClientInterface(host=args.ip, port=args.port)
@@ -63,6 +66,7 @@ if __name__ == "__main__":
     if args.use_spacemouse:
         print("Using SpaceMouse for teleoperation.")
         from manipulator_gym.utils.spacemouse import SpaceMouseExpert
+
         spacemouse = SpaceMouseExpert()
 
         def apply_spacemouse_action(gripper_open, with_rotation=True):
@@ -77,20 +81,21 @@ if __name__ == "__main__":
                 elif sm_action[i] < -0.5:
                     action[i] = -_ed
             interface.step_action(action)
+
     else:
         keyboard_action_map = {
-            ord('w'): np.array([_ed, 0, 0, 0, 0, 0,  0]),
-            ord('s'): np.array([-_ed, 0, 0, 0, 0, 0, 0]),
-            ord('a'): np.array([0, _ed, 0, 0, 0, 0,  0]),
-            ord('d'): np.array([0, -_ed, 0, 0, 0, 0, 0]),
-            ord('z'): np.array([0, 0, _ed, 0, 0, 0,  0]),
-            ord('c'): np.array([0, 0, -_ed, 0, 0, 0, 0]),
-            ord('i'): np.array([0, 0, 0, _ed, 0, 0,  0]),
-            ord('k'): np.array([0, 0, 0, -_ed, 0, 0, 0]),
-            ord('j'): np.array([0, 0, 0, 0, _ed, 0,  0]),
-            ord('l'): np.array([0, 0, 0, 0, -_ed, 0, 0]),
-            ord('n'): np.array([0, 0, 0, 0, 0, _ed,  0]),
-            ord('m'): np.array([0, 0, 0, 0, 0, -_ed, 0]),
+            ord("w"): np.array([_ed, 0, 0, 0, 0, 0, 0]),
+            ord("s"): np.array([-_ed, 0, 0, 0, 0, 0, 0]),
+            ord("a"): np.array([0, _ed, 0, 0, 0, 0, 0]),
+            ord("d"): np.array([0, -_ed, 0, 0, 0, 0, 0]),
+            ord("z"): np.array([0, 0, _ed, 0, 0, 0, 0]),
+            ord("c"): np.array([0, 0, -_ed, 0, 0, 0, 0]),
+            ord("i"): np.array([0, 0, 0, _ed, 0, 0, 0]),
+            ord("k"): np.array([0, 0, 0, -_ed, 0, 0, 0]),
+            ord("j"): np.array([0, 0, 0, 0, _ed, 0, 0]),
+            ord("l"): np.array([0, 0, 0, 0, -_ed, 0, 0]),
+            ord("n"): np.array([0, 0, 0, 0, 0, _ed, 0]),
+            ord("m"): np.array([0, 0, 0, 0, 0, -_ed, 0]),
         }
 
     print_help(not args.use_spacemouse)
@@ -101,24 +106,45 @@ if __name__ == "__main__":
         key = cv2.waitKey(100) & 0xFF
 
         # escape key to quit
-        if key == ord('q'):
+        if key == ord("q"):
             print("Quitting teleoperation.")
             running = False
             continue
 
         # space bar to change gripper state
-        elif key == ord(' '):
+        elif key == ord(" "):
             is_open = 1 - is_open
             print("Gripper is now: ", is_open)
             interface.step_action(np.array([0, 0, 0, 0, 0, 0, is_open]))
-        elif key == ord('r'):
+        elif key == ord("r"):
             print("Resetting robot...")
             interface.reset()
             print_help()
-        elif key == ord('g'):
+        elif key == ord("g"):
             print("Going to sleep... make sure server has this method")
             kwargs = {"go_sleep": True}
             interface.reset(**kwargs)
+            print_help()
+        elif key == ord("/"):
+            print("[experimental feature] reboot mulfuction motor for widowx")
+            widowx_joints = [
+                "waist",
+                "shoulder",
+                "elbow",
+                "forearm_roll",
+                "wrist_angle",
+                "wrist_rotate",
+                "gripper",
+            ]
+            res = interface.custom_fn("motor_status")
+            print("Motor status: ", res)
+
+            for i, status in enumerate(res):
+                if status != 0:
+                    joint_name = widowx_joints[i]
+                    print("Rebooting motor: ", joint_name)
+                    interface.custom_fn("reboot_motor", joint_name=joint_name)
+
             print_help()
 
         if args.use_spacemouse:

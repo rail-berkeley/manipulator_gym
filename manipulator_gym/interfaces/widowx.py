@@ -112,6 +112,8 @@ class WidowXInterface(ViperXInterface):
     def motor_status(self) -> np.ndarray:
         """
         Check if there are any hardware errors
+        
+        non-zero value means error
 
         API is from:
         https://github.com/Interbotix/interbotix_ros_toolboxes/blob/noetic/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/core.py

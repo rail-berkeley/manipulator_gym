@@ -91,3 +91,7 @@ class ManipulatorInterface(ABC):
 
     def reset(self, **kwargs) -> bool:
         return True
+
+    def configure(self, **kwargs) -> bool:
+        """Interface to implement any runtime configuration"""
+        return True

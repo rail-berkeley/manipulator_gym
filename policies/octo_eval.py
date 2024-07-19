@@ -7,8 +7,6 @@ from absl import app, flags, logging
 import gym
 import jax
 import numpy as np
-import wandb
-from typing import Dict, Tuple
 import cv2
 
 from manipulator_gym.manipulator_env import ManipulatorEnv, StateEncoding
@@ -22,7 +20,7 @@ from manipulator_gym.utils.gym_wrappers import (
 
 from octo.model.octo_model import OctoModel
 from octo.utils.gym_wrappers import HistoryWrapper, RHCWrapper, \
-    UnnormalizeActionProprio, TemporalEnsembleWrapper
+    NormalizeProprio, TemporalEnsembleWrapper
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("checkpoint_path", None, "Path to Octo checkpoint directory.")
@@ -35,7 +33,7 @@ def main(_):
     # load finetuned model
     logging.info("Loading finetuned model...")
     if not FLAGS.checkpoint_path:
-        model = OctoModel.load_pretrained("hf://rail-berkeley/octo-small")
+        model = OctoModel.load_pretrained("hf://rail-berkeley/octo-small-1.5")
     else:
         model = OctoModel.load_pretrained(FLAGS.checkpoint_path)
 
@@ -71,13 +69,14 @@ def main(_):
     env = TemporalEnsembleWrapper(env, 4)
     # env = RHCWrapper(env, exec_horizon=4)
 
-    # NOTE: we are using bridge_dataset's statistics for default normalization
     # wrap env to handle action/proprio normalization -- match normalization type to the one used during finetuning
-    env = UnnormalizeActionProprio(
-        env,
-        model.dataset_statistics["bridge_dataset"],
-        normalization_type="normal"
-    )
+    # this wrapper can only be used when there is proprio metadata (dataset_statistics['proprio'])
+    # else use dataset_statistics['action'] in model.sample_actions()
+    # env = NormalizeProprio(
+    #     env,
+    #     model.dataset_statistics["bridge_dataset"],
+    # )
+
     # running rollouts
     for _ in range(100):
         obs, info = env.reset()
@@ -100,7 +99,11 @@ def main(_):
 
             # model returns actions of shape [batch, pred_horizon, action_dim] -- remove batch
             actions = model.sample_actions(
-                jax.tree_map(lambda x: x[None], obs), task, rng=jax.random.PRNGKey(0)
+                jax.tree_map(lambda x: x[None], obs), 
+                task,
+                # NOTE: we are using bridge_dataset's statistics for default normalization
+                unnormalization_statistics=model.dataset_statistics["bridge_dataset"]["action"],
+                rng=jax.random.PRNGKey(0)
             )
             actions = actions[0]
             print("performing action: ",actions)

@@ -19,20 +19,23 @@ from manipulator_gym.utils.gym_wrappers import (
 )
 
 from octo.model.octo_model import OctoModel
-from octo.utils.gym_wrappers import HistoryWrapper, RHCWrapper, \
-    NormalizeProprio, TemporalEnsembleWrapper
+from octo.utils.gym_wrappers import HistoryWrapper, RHCWrapper, TemporalEnsembleWrapper
+
+np.set_printoptions(precision=2, suppress=True)
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("checkpoint_path", None, "Path to Octo checkpoint directory.")
 flags.DEFINE_string("ip", "localhost", "IP address of the robot server.")
 flags.DEFINE_bool("show_img", False, "Whether to visualize the images or not.")
 flags.DEFINE_string("text_cond", "put the banana on the plate", "Language prompt for the task.")
-
+flags.DEFINE_bool("clip_actions", False, "Clip actions to 0.02")
 
 def main(_):
     # load finetuned model
     logging.info("Loading finetuned model...")
     if not FLAGS.checkpoint_path:
+        # Octo Small is trained with a window size of 2, predicting 7-dimensional
+        # actions 4 steps into the future using a diffusion policy.
         model = OctoModel.load_pretrained("hf://rail-berkeley/octo-small-1.5")
     else:
         model = OctoModel.load_pretrained(FLAGS.checkpoint_path)
@@ -59,23 +62,14 @@ def main(_):
         state_encoding=StateEncoding.POS_EULER,
         use_wrist_cam=True,
     )
-    env = ClipActionBoxBoundary(env, workspace_boundary=[[0.0, -0.5, -0.5], [0.6, 0.5, 0.5]])
+    env = ClipActionBoxBoundary(env, workspace_boundary=[[0.0, -0.1, -0.5], [0.6, 0.5, 0.5]])
     env = ConvertState2Proprio(env)
     env = ResizeObsImageWrapper(env, resize_size={"image_primary": (256, 256), "image_wrist": (128, 128)})
 
     # # add wrappers for history and "receding horizon control", i.e. action chunking
-    # env = HistoryWrapper(env, horizon=2)
-    env = HistoryWrapper(env, horizon=1)
+    env = HistoryWrapper(env, horizon=2)
     env = TemporalEnsembleWrapper(env, 4)
     # env = RHCWrapper(env, exec_horizon=4)
-
-    # wrap env to handle action/proprio normalization -- match normalization type to the one used during finetuning
-    # this wrapper can only be used when there is proprio metadata (dataset_statistics['proprio'])
-    # else use dataset_statistics['action'] in model.sample_actions()
-    # env = NormalizeProprio(
-    #     env,
-    #     model.dataset_statistics["bridge_dataset"],
-    # )
 
     # running rollouts
     for _ in range(100):
@@ -106,8 +100,14 @@ def main(_):
                 rng=jax.random.PRNGKey(0)
             )
             actions = actions[0]
-            print("performing action: ",actions)
+            print("performing action: ", np.array(actions))
             print(f"Step {i} with action size of {len(actions)}")
+
+            if FLAGS.clip_actions:
+                # clip batch actions to [-0.02, 0.02]
+                actions = actions.at[:, :6].set(np.clip(actions[:, :6], -0.02, 0.02))
+                print(f"Clipped action: {np.array(actions)}")
+
             # step env -- info contains full "chunk" of observations for logging
             # obs only contains observation for final step of chunk
             obs, reward, done, trunc, info = env.step(actions)

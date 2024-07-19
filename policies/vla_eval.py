@@ -28,7 +28,7 @@ flags.DEFINE_bool("clip_actions", False, "Clip actions to 0.02")
 
 
 # np decimal printout to 2 decimal places
-np.set_printoptions(precision=2)
+np.set_printoptions(precision=2, suppress=True)
 device = "cuda:0"
 
 

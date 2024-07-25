@@ -100,28 +100,6 @@ if __name__ == "__main__":
             ord("m"): np.array([0, 0, 0, 0, 0, -_ed, 0]),
         }
 
-    if args.log_dir:
-        from oxe_envlogger.data_type import get_gym_space
-        from oxe_envlogger.rlds_logger import RLDSLogger, RLDSStepType
-        import tensorflow_datasets as tfds
-
-        obs_sample = {
-            "image_primary": np.zeros((128, 128, 3), dtype=np.uint8),
-            "image_wrist": np.zeros((128, 128, 3), dtype=np.uint8),
-            "state": np.zeros(8, dtype=np.float32),
-        }
-        action_sample = np.zeros(7, dtype=np.float32)
-
-        # 1. Create RLDSLogger
-        logger = RLDSLogger(
-            observation_space=get_gym_space(obs_sample),
-            action_space=get_gym_space(action_sample),
-            dataset_name="test_rlds",
-            directory=args.log_dir,
-            max_episodes_per_file=1,
-            step_metadata_info={"language_text": tfds.features.Text()},
-        )
-        _mdata = {"language_text": args.log_lang_text}
 
     def _get_full_obs():
         return {
@@ -134,14 +112,28 @@ if __name__ == "__main__":
             )
         }
 
+    if args.log_dir:
+        from oxe_envlogger.data_type import get_gym_space
+        from oxe_envlogger.rlds_logger import RLDSLogger, RLDSStepType
+        import tensorflow_datasets as tfds
+
+        # Create RLDSLogger
+        logger = RLDSLogger(
+            observation_space=get_gym_space(_get_full_obs()),
+            action_space=get_gym_space(np.zeros(7, dtype=np.float32)),
+            dataset_name="test_rlds",
+            directory=args.log_dir,
+            max_episodes_per_file=1,
+            step_metadata_info={"language_text": tfds.features.Text()},
+        )
+        _mdata = {"language_text": args.log_lang_text}
+
     def _execute_action(action, first_step=False):
         interface.step_action(action)
         if args.log_dir:
             obs = _get_full_obs()
-            if first_step:
-                logger(action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.RESTART)
-            else:
-                logger(action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.TRANSITION)
+            step_type = RLDSStepType.FIRST if first_step else RLDSStepType.TRANSITION
+            logger(action, obs, 0.0, metadata=_mdata, step_type=step_type)
 
     def _execute_reset():
         null_action = np.zeros(7)
@@ -153,7 +145,7 @@ if __name__ == "__main__":
 
         if args.log_dir:
             obs = _get_full_obs()
-            logger(null_action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.RESTART)
+            logger(null_action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.RESTART)            
 
     print_help(not args.use_spacemouse)
     is_open = 1

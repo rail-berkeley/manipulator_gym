@@ -108,7 +108,7 @@ class ViperXInterface(ManipulatorInterface):
 
     def reset(self,
               reset_pose=True,
-              target_state=np.array([0.26, 0.0, 0.26, 0.0, math.pi/2, 0.0, 0.0]),
+              target_state=np.array([0.26, 0.0, 0.26, 0.0, math.pi/2, 0.0, 1.0]),
               go_sleep=False,
         ) -> bool:
         """Override function from base class"""

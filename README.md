@@ -211,10 +211,14 @@ python policies/octo_eval.py --ip IP_ADDRESS --show_img --text_cond "PROVIDE YOU
 
 Data collection and Fine-tuning of Octo model
 
-Generate the log files for the RLDS training, this example uses `test_vrmani_env` dataset.
+Collect expert demonstations via teleop.
 ```bash
+# use --log_dir to log the data in RLDS format, requires oxe_envlogger
+python manipulator_gym/teleop.py --ip <IP_ADDRESS> --log_dir <LOG_DIR>
+
+# with VR data collection (DEPRECATED)
 # use --test for testing mode, in actual use case with oculus controller
-python3 vr_data_collection.py --rlds_output . --test
+# python3 vr_data_collection.py --rlds_output . --test
 ```
 *Note: need to [oculus_reader](https://github.com/rail-berkeley/oculus_reader) to collect data with occulus vr controller (linear movement with controller, rotation with controller joystick)*
 

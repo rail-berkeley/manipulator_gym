@@ -27,7 +27,7 @@ if __name__ == '__main__':
         from manipulator_gym.interfaces.interface_service import ActionClientInterface
         env = ManipulatorEnv(manipulator_interface=ActionClientInterface(host=args.ip))
 
-    ds_length = len(list(dataset))
+    ds_length = len(dataset)
     dataset = dataset.take(ds_length)
     it = iter(dataset)
 

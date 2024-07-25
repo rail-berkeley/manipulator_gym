@@ -132,7 +132,7 @@ if __name__ == "__main__":
         interface.step_action(action)
         if args.log_dir:
             obs = _get_full_obs()
-            step_type = RLDSStepType.FIRST if first_step else RLDSStepType.TRANSITION
+            step_type = RLDSStepType.RESTART if first_step else RLDSStepType.TRANSITION
             logger(action, obs, 0.0, metadata=_mdata, step_type=step_type)
 
     def _execute_reset():

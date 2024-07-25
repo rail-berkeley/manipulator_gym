@@ -57,6 +57,8 @@ if __name__ == "__main__":
     parser.add_argument("--eef_displacement", type=float, default=0.01)
     parser.add_argument("--use_spacemouse", action="store_true")
     parser.add_argument("--no_rotation", action="store_true")
+    parser.add_argument("--log_dir", type=str, default=None)
+    parser.add_argument("--log_lang_text", type=str, default="null task")
     args = parser.parse_args()
 
     interface = ActionClientInterface(host=args.ip, port=args.port)
@@ -69,7 +71,7 @@ if __name__ == "__main__":
 
         spacemouse = SpaceMouseExpert()
 
-        def apply_spacemouse_action(gripper_open, with_rotation=True):
+        def _get_spacemouse_action(gripper_open, with_rotation=True):
             sm_action, buttons = spacemouse.get_action()
             action = np.zeros(7)
             action[-1] = 1 if gripper_open else 0
@@ -80,7 +82,7 @@ if __name__ == "__main__":
                     action[i] = _ed
                 elif sm_action[i] < -0.5:
                     action[i] = -_ed
-            interface.step_action(action)
+            return action
 
     else:
         keyboard_action_map = {
@@ -98,9 +100,67 @@ if __name__ == "__main__":
             ord("m"): np.array([0, 0, 0, 0, 0, -_ed, 0]),
         }
 
+    if args.log_dir:
+        from oxe_envlogger.data_type import get_gym_space
+        from oxe_envlogger.rlds_logger import RLDSLogger, RLDSStepType
+        import tensorflow_datasets as tfds
+
+        obs_sample = {
+            "image_primary": np.zeros((128, 128, 3), dtype=np.uint8),
+            "image_wrist": np.zeros((128, 128, 3), dtype=np.uint8),
+            "state": np.zeros(8, dtype=np.float32),
+        }
+        action_sample = np.zeros(7, dtype=np.float32)
+
+        # 1. Create RLDSLogger
+        logger = RLDSLogger(
+            observation_space=get_gym_space(obs_sample),
+            action_space=get_gym_space(action_sample),
+            dataset_name="test_rlds",
+            directory=args.log_dir,
+            max_episodes_per_file=1,
+            step_metadata_info={"language_text": tfds.features.Text()},
+        )
+        _mdata = {"language_text": args.log_lang_text}
+
+    def _get_full_obs():
+        return {
+            "image_primary": interface.primary_img,
+            "image_wrist": interface.wrist_img,
+            "state": np.concatenate([
+                interface.eef_pose[:6],
+                [0.0],  # padding
+                [interface.gripper_state]], dtype=np.float32
+            )
+        }
+
+    def _execute_action(action, first_step=False):
+        interface.step_action(action)
+        if args.log_dir:
+            obs = _get_full_obs()
+            if first_step:
+                logger(action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.RESTART)
+            else:
+                logger(action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.TRANSITION)
+
+    def _execute_reset():
+        null_action = np.zeros(7)
+        if args.log_dir:
+            obs = _get_full_obs()
+            logger(null_action, obs, 1.0, metadata=_mdata, step_type=RLDSStepType.TERMINATION)
+
+        interface.reset()
+
+        if args.log_dir:
+            obs = _get_full_obs()
+            logger(null_action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.RESTART)
+
     print_help(not args.use_spacemouse)
     is_open = 1
     running = True
+
+    _execute_action(np.array([0, 0, 0, 0, 0, 0, is_open]), first_step=True)
+
     while running:
         # Check for key press
         key = cv2.waitKey(100) & 0xFF
@@ -115,10 +175,10 @@ if __name__ == "__main__":
         elif key == ord(" "):
             is_open = 1 - is_open
             print("Gripper is now: ", is_open)
-            interface.step_action(np.array([0, 0, 0, 0, 0, 0, is_open]))
+            _execute_action(np.array([0, 0, 0, 0, 0, 0, is_open]))
         elif key == ord("r"):
             print("Resetting robot...")
-            interface.reset()
+            _execute_reset()
             print_help()
         elif key == ord("g"):
             print("Going to sleep... make sure server has this method")
@@ -149,14 +209,23 @@ if __name__ == "__main__":
 
         if args.use_spacemouse:
             # command robot with spacemouse
-            apply_spacemouse_action(is_open, not args.no_rotation)
+            action = _get_spacemouse_action(is_open, not args.no_rotation)
+
+            # if action is more than 0.001 or less than -0.001 then move
+            if np.any(action[:6] > 0.001) or np.any(action[:6] < -0.001):
+                _execute_action(action)
+
         elif key in keyboard_action_map:
             # command robot with keyboard
             action = keyboard_action_map[key]
             action[-1] = is_open
-            interface.step_action(action)
+            _execute_action(action)
 
         show_video(interface)
+
+    if args.log_dir:
+        logger.close()
+        print("Done logging.")
 
     cv2.destroyAllWindows()
     print("Teleoperation ended.")

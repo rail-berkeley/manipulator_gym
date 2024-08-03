@@ -17,7 +17,15 @@ if __name__ == '__main__':
     parser.add_argument("--show_figures", action="store_true", help="show images in matplotlib")
     parser.add_argument("--replay", action="store_true", help="replay the trajectory on gym env")
     parser.add_argument("--ip", type=str, default="ip if we are replaying")
+    parser.add_argument("--reset_pose", nargs="+", type=float, default=None)
     args = parser.parse_args()
+
+    # if user specify where to reset the robot
+    reset_kwargs = {}
+    if args.reset_pose:
+        # e.g. np.array([0.26, 0.0, 0.26, 0.0, math.pi/2, 0.0, 1.0]),
+        assert len(args.reset_pose) == 7, "Reset pose must 7 values"
+        reset_kwargs = {"target_state": args.reset_pose}
 
     ds_builder = tfds.builder_from_directory(args.rlds_dir)
     dataset = ds_builder.as_dataset(split='all')
@@ -41,7 +49,7 @@ if __name__ == '__main__':
         wrist_img_buffer = []
 
         if args.replay:
-            env.reset()
+            env.reset(**reset_kwargs)
 
         for j, step in enumerate(steps):
             # print(step['observation'].keys())
@@ -83,10 +91,9 @@ if __name__ == '__main__':
                 wrist_img_buffer = []
 
             if args.replay:
-                action = step['action']
+                action = np.array(step['action'])
                 print("replaying action: ", action)
                 done = env.step(action)
-                time.sleep(0.1)
 
     print("done")
     del it, dataset

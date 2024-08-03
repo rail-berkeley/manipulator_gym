@@ -5,6 +5,9 @@ import numpy as np
 import cv2
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
 
+# TODO: create abstract class for InputModule, e.g. KeyboardInputModule, SpaceMouseInputModule
+# TODO: create wrapper class for action and observation robot interface, e.g. logging, replay, etc.
+
 
 def print_yellow(x):
     return print("\033[93m {}\033[00m".format(x))
@@ -22,8 +25,6 @@ def show_video(interface):
     if wrist_img is not None:
         wrist_img = cv2.cvtColor(wrist_img, cv2.COLOR_RGB2BGR)
         cv2.imshow("wrist img", wrist_img)
-
-    cv2.waitKey(20)  # 20 ms
 
 
 def print_help(with_keyboard=True):
@@ -59,7 +60,18 @@ if __name__ == "__main__":
     parser.add_argument("--no_rotation", action="store_true")
     parser.add_argument("--log_dir", type=str, default=None)
     parser.add_argument("--log_lang_text", type=str, default="null task")
+    parser.add_argument("--reset_pose", nargs="+", type=float, default=None)
+    parser.add_argument("--log_transitions", type=str, default=None)
     args = parser.parse_args()
+
+    recorded_transitions = []
+
+    # if user specify where to reset the robot
+    reset_kwargs = {}
+    if args.reset_pose:
+        # e.g. np.array([0.26, 0.0, 0.26, 0.0, math.pi/2, 0.0, 1.0]),
+        assert len(args.reset_pose) == 7, "Reset pose must 7 values"
+        reset_kwargs = {"target_state": args.reset_pose}
 
     interface = ActionClientInterface(host=args.ip, port=args.port)
 
@@ -71,11 +83,9 @@ if __name__ == "__main__":
 
         spacemouse = SpaceMouseExpert()
 
-        def _get_spacemouse_action(gripper_open, with_rotation=True):
+        def _get_spacemouse_action(with_rotation=True):
             sm_action, buttons = spacemouse.get_action()
             action = np.zeros(7)
-            action[-1] = 1 if gripper_open else 0
-
             dim = 6 if with_rotation else 3
             for i in range(dim):
                 if sm_action[i] > 0.5:
@@ -99,7 +109,6 @@ if __name__ == "__main__":
             ord("n"): np.array([0, 0, 0, 0, 0, _ed, 0]),
             ord("m"): np.array([0, 0, 0, 0, 0, -_ed, 0]),
         }
-
 
     def _get_full_obs():
         return {
@@ -128,6 +137,7 @@ if __name__ == "__main__":
         )
         _mdata = {"language_text": args.log_lang_text}
 
+    #### Wrap execution of actions for logging ####
     def _execute_action(action, first_step=False):
         interface.step_action(action)
         if args.log_dir:
@@ -135,18 +145,20 @@ if __name__ == "__main__":
             step_type = RLDSStepType.RESTART if first_step else RLDSStepType.TRANSITION
             logger(action, obs, 0.0, metadata=_mdata, step_type=step_type)
 
+    #### Wrap execution of reset for logging ####
     def _execute_reset():
         null_action = np.zeros(7)
         if args.log_dir:
             obs = _get_full_obs()
             logger(null_action, obs, 1.0, metadata=_mdata, step_type=RLDSStepType.TERMINATION)
 
-        interface.reset()
+        interface.reset(**reset_kwargs)
 
         if args.log_dir:
             obs = _get_full_obs()
-            logger(null_action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.RESTART)            
+            logger(null_action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.RESTART)
 
+    #### Main loop ####
     print_help(not args.use_spacemouse)
     is_open = 1
     running = True
@@ -155,7 +167,7 @@ if __name__ == "__main__":
 
     while running:
         # Check for key press
-        key = cv2.waitKey(100) & 0xFF
+        key = cv2.waitKey(40) & 0xFF
 
         # escape key to quit
         if key == ord("q"):
@@ -171,6 +183,7 @@ if __name__ == "__main__":
         elif key == ord("r"):
             print("Resetting robot...")
             _execute_reset()
+            is_open = (interface.gripper_state > 0.5)
             print_help()
         elif key == ord("g"):
             print("Going to sleep... make sure server has this method")
@@ -199,16 +212,20 @@ if __name__ == "__main__":
 
             print_help()
 
+        # command robot with spacemouse (continuous)
         if args.use_spacemouse:
-            # command robot with spacemouse
-            action = _get_spacemouse_action(is_open, not args.no_rotation)
+            action = _get_spacemouse_action(not args.no_rotation)
+            action[-1] = is_open
 
             # if action is more than 0.001 or less than -0.001 then move
             if np.any(action[:6] > 0.001) or np.any(action[:6] < -0.001):
                 _execute_action(action)
+            # keep command gripper if gripper state is different
+            if (interface.gripper_state > 0.5) != is_open:
+                _execute_action(action)
 
+        # command robot with keyboard (event based)
         elif key in keyboard_action_map:
-            # command robot with keyboard
             action = keyboard_action_map[key]
             action[-1] = is_open
             _execute_action(action)

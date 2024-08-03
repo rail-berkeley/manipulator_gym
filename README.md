@@ -16,7 +16,7 @@ This package provides a common gym-like environment for policy to interact with 
 
 **Other useful features are also provided**
 - Eval script to run a robot policy [octo](https://octo-models.github.io/)
-- VR data collection script to collect data for RLDS training (also support remote data collection)
+- Data collection script to collect data for RLDS training (also support remote data collection)
 - Fine-tuning script to finetune the octo model with the collected RLDS data
 
 
@@ -211,12 +211,13 @@ python policies/octo_eval.py --ip IP_ADDRESS --show_img --text_cond "PROVIDE YOU
 
 Data collection and Fine-tuning of Octo model
 
-Generate the log files for the RLDS training, this example uses `test_vrmani_env` dataset.
+Collect expert demonstations via teleop.
 ```bash
-# use --test for testing mode, in actual use case with oculus controller
-python3 vr_data_collection.py --rlds_output . --test
+# Usage
+# --log_dir to log the data in RLDS format, requires oxe_envlogger
+# --reset_pose <x y z r p y gripper> to reset the robot to a specific pose
+python manipulator_gym/teleop.py --ip <IP_ADDRESS> --log_dir <LOG_DIR>
 ```
-*Note: need to [oculus_reader](https://github.com/rail-berkeley/oculus_reader) to collect data with occulus vr controller (linear movement with controller, rotation with controller joystick)*
 
 (optional) Validate the generated log files by replaying on the robot gym env
 ```bash
@@ -243,3 +244,8 @@ We can also use the collected RLDS for OpenVLA finetuning, check out the doc in 
 ## Notes
 
 This is still in active development. Open issues for wishlist and bugs.
+
+In progress:
+ - More interfaces (e.g. mujoco panda, franka, etc.)
+ - More sim envs (e.g. robosuite etc.)
+ - Cleaner impl of VR controller method with [oculus_reader](https://github.com/rail-berkeley/oculus_reader) to collect data with occulus vr controller (linear movement with controller, rotation with controller joystick)*

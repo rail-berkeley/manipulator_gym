@@ -61,7 +61,6 @@ if __name__ == "__main__":
     parser.add_argument("--log_dir", type=str, default=None)
     parser.add_argument("--log_lang_text", type=str, default="null task")
     parser.add_argument("--reset_pose", nargs="+", type=float, default=None)
-    parser.add_argument("--log_transitions", type=str, default=None)
     args = parser.parse_args()
 
     recorded_transitions = []
@@ -137,7 +136,7 @@ if __name__ == "__main__":
         )
         _mdata = {"language_text": args.log_lang_text}
 
-    #### Wrap execution of actions for logging ####
+    ############# Wrap execution of actions for logging #############
     def _execute_action(action, first_step=False):
         interface.step_action(action)
         if args.log_dir:
@@ -145,7 +144,7 @@ if __name__ == "__main__":
             step_type = RLDSStepType.RESTART if first_step else RLDSStepType.TRANSITION
             logger(action, obs, 0.0, metadata=_mdata, step_type=step_type)
 
-    #### Wrap execution of reset for logging ####
+    ############# Wrap execution of reset for logging #############
     def _execute_reset():
         null_action = np.zeros(7)
         if args.log_dir:
@@ -158,7 +157,7 @@ if __name__ == "__main__":
             obs = _get_full_obs()
             logger(null_action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.RESTART)
 
-    #### Main loop ####
+    ########################## Main loop ##########################
     print_help(not args.use_spacemouse)
     is_open = 1
     running = True

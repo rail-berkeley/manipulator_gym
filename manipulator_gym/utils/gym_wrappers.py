@@ -5,6 +5,36 @@ from typing import Dict, Tuple, Optional
 import logging
 
 
+class CheckAndRebootJoints(gym.Wrapper):
+    """
+    Every step, check whether joints have failed and reboot them if necessary.
+    """
+    def __init__(self, env, interface):
+        super().__init__(env)
+        self.interface = interface
+        self.widowx_joints = [
+            "waist",
+            "shoulder",
+            "elbow",
+            "forearm_roll",
+            "wrist_angle",
+            "wrist_rotate",
+            "gripper",
+        ]
+    
+    def step(self, action):
+        res = self.interface.custom_fn("motor_status")
+        for i, status in enumerate(res):
+            if status != 0:
+                joint_name = self.widowx_joints[i]
+                print("Rebooting motor: ", joint_name)
+                self.interface.custom_fn("reboot_motor", joint_name=joint_name)
+        
+        return self.env.step(action)
+                
+                
+##############################################################################
+
 class ConvertState2Proprio(gym.Wrapper):
     """
     convert dict key 'state' to 'proprio' to comply to bridge_dataset stats

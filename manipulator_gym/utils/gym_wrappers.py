@@ -9,7 +9,7 @@ class CheckAndRebootJoints(gym.Wrapper):
     """
     Every step, check whether joints have failed and reboot them if necessary.
     """
-    def __init__(self, env, interface):
+    def __init__(self, env, interface, check_every_n_steps: int = 1):
         super().__init__(env)
         self.interface = interface
         self.widowx_joints = [
@@ -21,16 +21,25 @@ class CheckAndRebootJoints(gym.Wrapper):
             "wrist_rotate",
             "gripper",
         ]
+        self.step_number = 0
+        self.every_n_steps = check_every_n_steps
     
     def step(self, action):
+        self.step_number += 1
         res = self.interface.custom_fn("motor_status")
-        for i, status in enumerate(res):
-            if status != 0:
-                joint_name = self.widowx_joints[i]
-                print("Rebooting motor: ", joint_name)
-                self.interface.custom_fn("reboot_motor", joint_name=joint_name)
+        
+        if res is not None and self.step_number % self.every_n_steps == 0:
+            for i, status in enumerate(res):
+                if status != 0:
+                    joint_name = self.widowx_joints[i]
+                    print("Rebooting motor: ", joint_name)
+                    self.interface.custom_fn("reboot_motor", joint_name=joint_name)
         
         return self.env.step(action)
+    
+    def reset(self, **kwargs):
+        self.step_number = 0
+        return self.env.reset(**kwargs)
                 
                 
 ##############################################################################

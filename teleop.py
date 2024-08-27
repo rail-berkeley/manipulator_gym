@@ -83,13 +83,14 @@ if __name__ == "__main__":
         from manipulator_gym.control.spacemouse import SpaceMouseControl
         spacemouse = SpaceMouseControl()
 
-        def _get_spacemouse_action():
+        def _get_spacemouse_action(with_rotation=True):
             sm_action, buttons = spacemouse.get_action()
             action = np.zeros(7)
             for i in range(3):
                 action[i] = _dt if sm_action[i] > 0.5 else (-_dt if sm_action[i] < -0.5 else 0)
-            for i in range(3, 6):
-                action[i] = _dr if sm_action[i] > 0.5 else (-_dr if sm_action[i] < -0.5 else 0)
+            if with_rotation:
+                for i in range(3, 6):
+                    action[i] = _dr if sm_action[i] > 0.5 else (-_dr if sm_action[i] < -0.5 else 0)
             return action
 
     else:

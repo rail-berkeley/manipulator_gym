@@ -102,7 +102,6 @@ class ClipActionBoxBoundary(gym.Wrapper):
            (this should be a negative value.)
         """
         super().__init__(env)
-        self._workspace_boundary = workspace_boundary
         self._prev_state = None
         self._out_of_boundary_penalty = out_of_boundary_penalty
         self._rotation_limit = rotation_limit
@@ -114,7 +113,7 @@ class ClipActionBoxBoundary(gym.Wrapper):
         penalty = 0.0
         if self._prev_state is not None:
             new_point = self._prev_state[0:3] + action[0:3]
-            if not self.workspace_checker.check_point(new_point):
+            if not self.workspace_checker.within_workspace(new_point):
                 print("Warning: Action out of bounds. Clipping to workspace boundary.")
                 penalty = self._out_of_boundary_penalty
                 clipped_point = self.workspace_checker.clip_point(new_point)
@@ -141,14 +140,15 @@ class ClipActionBoxBoundary(gym.Wrapper):
         self._prev_state = obs["state"]
         return obs, info
 
-    def workspace_viz(self, point: Optional[np.array] = None):
+    def visualize_workspace(self, point: Optional[np.array] = None):
         """Util fn to visualize the workspace boundary and optionally
         a point and its clipped version."""
         self.workspace_checker.visualize(point)
 
+
 ##############################################################################
 
-class ClipActionMultiBoxBoundary(gym.Wrapper):
+class ClipActionMultiBoxBoundary(ClipActionBoxBoundary):
     """
     User can provide multiple cubloids to define the workspace boundary.
     
@@ -175,39 +175,3 @@ class ClipActionMultiBoxBoundary(gym.Wrapper):
 
         self.workspace_checker = WorkspaceChecker(cubloids)
         assert "state" in self.env.observation_space.spaces, "state not in observation space"
-
-    def step(self, action):
-        penalty = 0.0
-        if self._prev_state is not None:
-            new_point = self._prev_state[0:3] + action[0:3]
-            if not self.workspace_checker.check_point(new_point):
-                print("Warning: Action out of bounds. Clipping to workspace boundary.")
-                penalty = self._out_of_boundary_penalty
-                clipped_point = self.workspace_checker.clip_point(new_point)
-                action[0:3] = clipped_point - self._prev_state[0:3]
-
-            # Do rotation clipping if limit is provided
-            if self._rotation_limit is not None:
-                new_rot = self._prev_state[3:6] + action[3:6]
-
-                if np.any(new_rot < self._rotation_limit[0]) or np.any(new_rot > self._rotation_limit[1]):
-                    print("Warning: Rotation out of bounds. Clipping to rotation boundary.")
-                    penalty = self._out_of_boundary_penalty
-                    clipped_rot = np.clip(new_rot, self._rotation_limit[0], self._rotation_limit[1])
-                    action[3:6] = clipped_rot - self._prev_state[3:6]
-
-        obs, reward, done, trunc, info = self.env.step(action)
-        reward -= penalty
-        self._prev_state = obs["state"]
-        return obs, reward, done, trunc, info
-
-    def reset(self, **kwargs):
-        """standard gym reset function"""
-        obs, info = self.env.reset(**kwargs)
-        self._prev_state = obs["state"]
-        return obs, info
-   
-    def workspace_viz(self, point: Optional[np.array] = None):
-        """Util fn to visualize the workspace boundary and optionally
-        a point and its clipped version."""
-        self.workspace_checker.visualize(point)

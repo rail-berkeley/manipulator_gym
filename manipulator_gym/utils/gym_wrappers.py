@@ -8,6 +8,9 @@ import logging
 class CheckAndRebootJoints(gym.Wrapper):
     """
     Every step, check whether joints have failed and reboot them if necessary.
+    When joints fail, truncate the episode, and reboot joints on reset.
+    
+    NOTE: this currently only works on the widowx interface.
     """
     def __init__(self, env, interface, check_every_n_steps: int = 1):
         super().__init__(env)
@@ -47,6 +50,7 @@ class CheckAndRebootJoints(gym.Wrapper):
         # reset joints on reset
         res = self.interface.custom_fn("motor_status")
         if res is not None:
+            self.interface.reset(**{"go_sleep": True})
             for i, status in enumerate(res):
                 if status != 0:
                     self.interface.custom_fn("reboot_motor", joint_name=self.widowx_joints[i])

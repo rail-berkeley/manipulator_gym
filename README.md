@@ -1,5 +1,7 @@
 # Manipulator Gym
 
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+
 > ⚠️ Still in early development, expect breaking changes ⚠️
 
 This package provides a common gym-like environment for policy to interact with a manipulator robot. The environment is based on the `gym` interface, and the robots are defined as `interfaces`. The abstracted robot interfaces is easily swappable, modularized and run distributedly. Common utilities are provided to assist users to run robot policies (e.g. octo) on the robot.
@@ -15,10 +17,9 @@ This package provides a common gym-like environment for policy to interact with 
 *more coming soon.... (etc. mujoco panda)*
 
 **Other useful features are also provided**
-- Eval script to run a robot policy [octo](https://octo-models.github.io/)
+- Eval script to run a robot policy [octo](https://octo-models.github.io/) and [openvla](https://openvla.github.io/)
 - Data collection script to collect data for RLDS training (also support remote data collection)
-- Fine-tuning script to finetune the octo model with the collected RLDS data
-
+- Fine-tuning script to finetune the robot policy with the collected RLDS data
 
 ## Installations:
 
@@ -237,6 +238,7 @@ We can also use the collected RLDS for OpenVLA finetuning, check out the doc in 
 ## Others
 
 - If you wish to directly wrap the gym env for distributed gym inference, you can directly use agentlace's [action env wrapper](https://github.com/youliangtan/agentlace/blob/main/examples/action_cartpole_env.py)
+- If you wish to save the raw teleop data in pkl format, indicate `--log_type pkl` when running the `teleop.py` script
 - TODO: create util scripts for wandb eval loggings
 - TODO: better interfaces with extend-able sensors and actuators (e.g. camera, bimanual manipulators, etc.)
 

@@ -201,11 +201,14 @@ if __name__ == '__main__':
     else:
         raise ValueError("Please specify the interface")
 
+    np.set_printoptions(precision=3, suppress=True)
+    import copy
+
     env = ManipulatorEnv(_interface)
     env = ClipActionBoxBoundary(
         env,
         workspace_boundary=np.array([[-0.9, -9., -9.],
-                                     [0.9, 9., 9.]]),
+                                     [0.35, 9., 0.35]]),
     )
 
     if args.log_dir:
@@ -224,17 +227,17 @@ if __name__ == '__main__':
 
     done = False
     trunc = False
-    action = np.array([0.01, 0.00, 0.00, 0.00, 0.0,
-                      0.0, 1.0], dtype=np.float32)
+    action = np.array([0.01, 0.00, 0.01, 0.00, 0.0, 0.0, 1.0],
+                      dtype=np.float32)
 
     for eps in range(3):
         obs, _ = env.reset()
 
-        for i in range(20):
-            print(f"step {i}")
-            obs_tuple = env.step(action)
+        for i in range(40):
+            print(f"step {i} with action: {action}")
+            obs_tuple = env.step(copy.deepcopy(action))
             obs = obs_tuple[0]
-            # print(f"  current proprio: {obs['state']}")
+            print(f"  current proprio: {obs['state']}")
 
             if args.show_img:
                 # convert the image to from bgr to rgb

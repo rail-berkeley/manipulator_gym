@@ -2,9 +2,10 @@ import threading
 import pyspacemouse
 import numpy as np
 from typing import Tuple
+from manipulator_gym.control.keyboard import ControlModule
 
 
-class SpaceMouseExpert:
+class SpaceMouseControl(ControlModule):
     """
     This class provides an interface to the SpaceMouse.
     It continuously reads the SpaceMouse state and provide
@@ -21,6 +22,15 @@ class SpaceMouseExpert:
         self.thread.daemon = True
         self.thread.start()
 
+    def get_action(self) -> Tuple[np.ndarray, list]:
+        """Returns the latest action and button state of the SpaceMouse."""
+        with self.state_lock:
+            return self.latest_data["action"], self.latest_data["buttons"]
+
+    def register_callback(self, callback):
+        raise NotImplementedError
+
+
     def _read_spacemouse(self):
         while True:
             state = pyspacemouse.read()
@@ -29,8 +39,3 @@ class SpaceMouseExpert:
                     [-state.y, state.x, state.z, -state.roll, -state.pitch, -state.yaw]
                 )  # spacemouse axis matched with robot base frame
                 self.latest_data["buttons"] = state.buttons
-
-    def get_action(self) -> Tuple[np.ndarray, list]:
-        """Returns the latest action and button state of the SpaceMouse."""
-        with self.state_lock:
-            return self.latest_data["action"], self.latest_data["buttons"]

@@ -6,6 +6,63 @@ import logging
 from manipulator_gym.utils.workspace import WorkspaceChecker
 
 
+class CheckAndRebootJoints(gym.Wrapper):
+    """
+    Every step, check whether joints have failed and reboot them if necessary.
+    When joints fail, truncate the episode, and reboot joints on reset.
+    
+    NOTE: this currently only works on the widowx interface.
+    """
+    def __init__(self, env, interface, check_every_n_steps: int = 1):
+        super().__init__(env)
+        self.interface = interface
+        self.widowx_joints = [
+            "waist",
+            "shoulder",
+            "elbow",
+            "forearm_roll",
+            "wrist_angle",
+            "wrist_rotate",
+            "gripper",
+        ]
+        self.step_number = 0
+        self.every_n_steps = check_every_n_steps
+        self.motor_failed = np.zeros_like(self.action_space.sample())
+    
+    def step(self, action):
+        self.step_number += 1
+        res = self.interface.custom_fn("motor_status")
+        
+        if res is not None and self.step_number % self.every_n_steps == 0:
+            for i, status in enumerate(res):
+                if status != 0:
+                    self.motor_failed[i] = status
+                    break
+        
+        obs, reward, done, trunc, info = self.env.step(action)
+        if any(self.motor_failed):
+            trunc = True
+        
+        return obs, reward, done, trunc, info
+    
+    def reset(self, **kwargs):
+        self.step_number = 0
+        
+        # reset joints on reset
+        res = self.interface.custom_fn("motor_status")
+        if res is not None:
+            self.interface.reset(**{"go_sleep": True})
+            for i, status in enumerate(res):
+                if status != 0:
+                    self.interface.custom_fn("reboot_motor", joint_name=self.widowx_joints[i])
+
+        self.motor_failed = np.zeros_like(self.action_space.sample())
+        
+        return self.env.reset(**kwargs)
+                
+                
+##############################################################################
+
 class ConvertState2Proprio(gym.Wrapper):
     """
     convert dict key 'state' to 'proprio' to comply to bridge_dataset stats

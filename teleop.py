@@ -55,7 +55,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--ip", type=str, default="localhost")
     parser.add_argument("--port", type=int, default=5556)
-    parser.add_argument("--eef_displacement", type=float, default=0.01)
+    parser.add_argument("--translation_diff", type=float, default=0.01)
+    parser.add_argument("--rotation_diff", type=float, default=0.02)
     parser.add_argument("--use_spacemouse", action="store_true")
     parser.add_argument("--no_rotation", action="store_true")
     parser.add_argument("--log_dir", type=str, default=None)
@@ -74,39 +75,37 @@ if __name__ == "__main__":
 
     interface = ActionClientInterface(host=args.ip, port=args.port)
 
-    _ed = args.eef_displacement
+    _dt = args.translation_diff
+    _dr = args.rotation_diff
 
     if args.use_spacemouse:
         print("Using SpaceMouse for teleoperation.")
-        from manipulator_gym.utils.spacemouse import SpaceMouseExpert
+        from manipulator_gym.control.spacemouse import SpaceMouseControl
+        spacemouse = SpaceMouseControl()
 
-        spacemouse = SpaceMouseExpert()
-
-        def _get_spacemouse_action(with_rotation=True):
+        def _get_spacemouse_action():
             sm_action, buttons = spacemouse.get_action()
             action = np.zeros(7)
-            dim = 6 if with_rotation else 3
-            for i in range(dim):
-                if sm_action[i] > 0.5:
-                    action[i] = _ed
-                elif sm_action[i] < -0.5:
-                    action[i] = -_ed
+            for i in range(3):
+                action[i] = _dt if sm_action[i] > 0.5 else (-_dt if sm_action[i] < -0.5 else 0)
+            for i in range(3, 6):
+                action[i] = _dr if sm_action[i] > 0.5 else (-_dr if sm_action[i] < -0.5 else 0)
             return action
 
     else:
         keyboard_action_map = {
-            ord("w"): np.array([_ed, 0, 0, 0, 0, 0, 0]),
-            ord("s"): np.array([-_ed, 0, 0, 0, 0, 0, 0]),
-            ord("a"): np.array([0, _ed, 0, 0, 0, 0, 0]),
-            ord("d"): np.array([0, -_ed, 0, 0, 0, 0, 0]),
-            ord("z"): np.array([0, 0, _ed, 0, 0, 0, 0]),
-            ord("c"): np.array([0, 0, -_ed, 0, 0, 0, 0]),
-            ord("i"): np.array([0, 0, 0, _ed, 0, 0, 0]),
-            ord("k"): np.array([0, 0, 0, -_ed, 0, 0, 0]),
-            ord("j"): np.array([0, 0, 0, 0, _ed, 0, 0]),
-            ord("l"): np.array([0, 0, 0, 0, -_ed, 0, 0]),
-            ord("n"): np.array([0, 0, 0, 0, 0, _ed, 0]),
-            ord("m"): np.array([0, 0, 0, 0, 0, -_ed, 0]),
+            ord("w"): np.array([_dt, 0, 0, 0, 0, 0, 0]),
+            ord("s"): np.array([-_dt, 0, 0, 0, 0, 0, 0]),
+            ord("a"): np.array([0, _dt, 0, 0, 0, 0, 0]),
+            ord("d"): np.array([0, -_dt, 0, 0, 0, 0, 0]),
+            ord("z"): np.array([0, 0, _dt, 0, 0, 0, 0]),
+            ord("c"): np.array([0, 0, -_dt, 0, 0, 0, 0]),
+            ord("i"): np.array([0, 0, 0, _dr, 0, 0, 0]),
+            ord("k"): np.array([0, 0, 0, -_dr, 0, 0, 0]),
+            ord("j"): np.array([0, 0, 0, 0, _dr, 0, 0]),
+            ord("l"): np.array([0, 0, 0, 0, -_dr, 0, 0]),
+            ord("n"): np.array([0, 0, 0, 0, 0, _dr, 0]),
+            ord("m"): np.array([0, 0, 0, 0, 0, -_dr, 0]),
         }
 
     def _get_full_obs():
@@ -203,6 +202,7 @@ if __name__ == "__main__":
             res = interface.custom_fn("motor_status")
             print("Motor status: ", res)
 
+            # check motor failure and reset it
             for i, status in enumerate(res):
                 if status != 0:
                     joint_name = widowx_joints[i]

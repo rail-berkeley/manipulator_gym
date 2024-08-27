@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 import cv2
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List
 import logging
 
 
@@ -95,7 +95,7 @@ class ClipActionBoxBoundary(gym.Wrapper):
         """
         Args:
         - env: gym environment
-        - workspace_boundary: the boundary of the eef workspace in abs coordinates
+        - workspace_boundary (2x3 array): the boundary of the eef workspace in abs coordinates
         - rotation_limit: limit the rotation of the eef in radian in [[-rpy], [+rpy]]
         - out_of_boundary_penalty: penalty for going out of the boundary (-ve reward)
            (this should be a negative value.)
@@ -143,3 +143,36 @@ class ClipActionBoxBoundary(gym.Wrapper):
         obs, info = self.env.reset(**kwargs)
         self._prev_state = obs["state"]
         return obs, info
+
+##############################################################################
+
+class ClipActionMultiBoxBoundary(gym.Wrapper):
+    """
+    User can provide multiple cubloids to define the workspace boundary.
+    
+    Action clipping, ensure ["state"] is provided in obs
+    """
+    def __init__(self,
+                 env: gym.Env,
+                 cubloids: List[np.array],
+                 rotation_limit: Optional[float] = None,
+                 out_of_boundary_penalty: float = 0.0,
+                 ):
+        """
+        Args:
+        - env: gym environment
+        - cubloids (List of 2x3 array): define the workspace boundary of the agent
+        - rotation_limit: limit the rotation of the eef in radian in [[-rpy], [+rpy]]
+        - out_of_boundary_penalty: penalty for going out of the boundary (-ve reward)
+           (this should be a negative value.)
+        """
+        super().__init__(env)
+        self._cubloids = cubloids
+        self._prev_state = None
+        self._out_of_boundary_penalty = out_of_boundary_penalty
+        self._rotation_limit = rotation_limit
+
+        assert "state" in self.env.observation_space.spaces, "state not in observation space"
+
+    def step(self, action):
+        raise NotImplementedError

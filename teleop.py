@@ -3,6 +3,9 @@
 import argparse
 import numpy as np
 import cv2
+import pickle
+import copy
+
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
 
 # TODO: create abstract class for InputModule, e.g. KeyboardInputModule, SpaceMouseInputModule
@@ -47,6 +50,33 @@ def print_help(with_keyboard=True):
     print_yellow("    q: quit")
 
 
+class PickleLogger:
+    def __init__(self, filename):
+        self.filename = filename
+        self.data = []
+        print("Logging pkl to: ", filename)
+
+    def __call__(self, action, obs, reward, metadata=None, step_type=0):
+        """Log a step, step_type=0 for transition, 1 for termination"""
+        step = copy.deepcopy(
+            dict(
+                action=action,
+                observation=obs,
+                mask=0,
+                reward=reward,
+                metadata=metadata,
+                done=(step_type == 1),
+            )
+        )
+        self.data.append(step)
+
+    def close(self):
+        print("Saving log to: ", self.filename)
+        with open(self.filename, "wb") as f:
+            pickle.dump(self.data, f)
+        print("Done saving.")
+
+
 ###############################################################################
 
 if __name__ == "__main__":
@@ -60,6 +90,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_spacemouse", action="store_true")
     parser.add_argument("--no_rotation", action="store_true")
     parser.add_argument("--log_dir", type=str, default=None)
+    parser.add_argument("--log_type", type=str, default="rlds")
     parser.add_argument("--log_lang_text", type=str, default="null task")
     parser.add_argument("--reset_pose", nargs="+", type=float, default=None)
     args = parser.parse_args()
@@ -110,38 +141,52 @@ if __name__ == "__main__":
         }
 
     def _get_full_obs():
-        return {
+        obs = {
             "image_primary": interface.primary_img,
-            "image_wrist": interface.wrist_img,
             "state": np.concatenate([
                 interface.eef_pose[:6],
                 [0.0],  # padding
                 [interface.gripper_state]], dtype=np.float32
             )
         }
+        if interface.wrist_img is not None:
+            obs["image_wrist"] = interface.wrist_img
+        return obs
 
     if args.log_dir:
-        from oxe_envlogger.data_type import get_gym_space
-        from oxe_envlogger.rlds_logger import RLDSLogger, RLDSStepType
-        import tensorflow_datasets as tfds
+        if args.log_type == "rlds":
+            from oxe_envlogger.data_type import get_gym_space
+            from oxe_envlogger.rlds_logger import RLDSLogger, RLDSStepType
+            import tensorflow_datasets as tfds
 
-        # Create RLDSLogger
-        logger = RLDSLogger(
-            observation_space=get_gym_space(_get_full_obs()),
-            action_space=get_gym_space(np.zeros(7, dtype=np.float32)),
-            dataset_name="test_rlds",
-            directory=args.log_dir,
-            max_episodes_per_file=1,
-            step_metadata_info={"language_text": tfds.features.Text()},
-        )
+            # Create RLDSLogger
+            logger = RLDSLogger(
+                observation_space=get_gym_space(_get_full_obs()),
+                action_space=get_gym_space(np.zeros(7, dtype=np.float32)),
+                dataset_name="test_rlds",
+                directory=args.log_dir,
+                max_episodes_per_file=1,
+                step_metadata_info={"language_text": tfds.features.Text()},
+            )
+        elif args.log_type == "pkl":
+            logger = PickleLogger(filename=args.log_dir)
+        else:
+            raise ValueError("Invalid log type: ", args.log_type)
+
         _mdata = {"language_text": args.log_lang_text}
+        
 
     ############# Wrap execution of actions for logging #############
     def _execute_action(action, first_step=False):
         obs = _get_full_obs()
         interface.step_action(action)
         if args.log_dir:
-            step_type = RLDSStepType.RESTART if first_step else RLDSStepType.TRANSITION
+
+            if args.log_type == "rlds":
+                step_type = RLDSStepType.RESTART if first_step else RLDSStepType.TRANSITION
+            elif args.log_type == "pkl":
+                step_type = 0
+
             logger(action, obs, 0.0, metadata=_mdata, step_type=step_type)
 
     ############# Wrap execution of reset for logging #############
@@ -149,13 +194,15 @@ if __name__ == "__main__":
         null_action = np.zeros(7)
         if args.log_dir:
             obs = _get_full_obs()
-            logger(null_action, obs, 1.0, metadata=_mdata, step_type=RLDSStepType.TERMINATION)
+            step_type = 1 if args.log_type == "pkl" else RLDSStepType.TERMINATION
+            logger(null_action, obs, 1.0, metadata=_mdata, step_type=step_type)
 
         interface.reset(**reset_kwargs)
 
         if args.log_dir:
             obs = _get_full_obs()
-            logger(null_action, obs, 0.0, metadata=_mdata, step_type=RLDSStepType.RESTART)
+            step_type = 0 if args.log_type == "pkl" else RLDSStepType.RESTART
+            logger(null_action, obs, 0.0, metadata=_mdata, step_type=step_type)
 
     ########################## Main loop ##########################
     print_help(not args.use_spacemouse)

@@ -46,7 +46,7 @@ def main(_):
     base_vla = AutoModelForVision2Seq.from_pretrained(
         "openvla/openvla-7b",
         # attn_implementation="flash_attention_2",  # [Optional] Requires `flash_attn`
-        torch_dtype=torch.bfloat16,
+        torch_dtype=torch.float32,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
     ).to(device)
@@ -81,7 +81,7 @@ def main(_):
                     break
 
             image_cond = Image.fromarray(image)
-            inputs = processor(prompt, image_cond).to(device, dtype=torch.bfloat16)
+            inputs = processor(prompt, image_cond).to(device, dtype=torch.float32)
 
             # Predict Action (7-DoF; un-normalize for BridgeData V2)
             action = vla.predict_action(

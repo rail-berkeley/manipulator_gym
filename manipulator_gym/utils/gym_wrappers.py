@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from typing import Dict, Tuple, Optional, List
 import logging
-from manipulator_gym.utils.workspace import WorkspaceChecker
+#from manipulator_gym.utils.workspace import WorkspaceChecker
 
 
 class CheckAndRebootJoints(gym.Wrapper):
@@ -162,7 +162,7 @@ class ClipActionBoxBoundary(gym.Wrapper):
         self._prev_state = None
         self._out_of_boundary_penalty = out_of_boundary_penalty
         self._rotation_limit = rotation_limit
-        self.workspace_checker = WorkspaceChecker([workspace_boundary])
+        #self.workspace_checker = WorkspaceChecker([workspace_boundary])
         assert "state" in self.env.observation_space.spaces, "state not in observation space"
 
     def step(self, action):
@@ -170,11 +170,11 @@ class ClipActionBoxBoundary(gym.Wrapper):
         penalty = 0.0
         if self._prev_state is not None:
             new_point = self._prev_state[0:3] + action[0:3]
-            if not self.workspace_checker.within_workspace(new_point):
-                print("Warning: Action out of bounds. Clipping to workspace boundary.")
-                penalty = self._out_of_boundary_penalty
-                clipped_point = self.workspace_checker.clip_point(new_point)
-                action[0:3] = clipped_point - self._prev_state[0:3]
+            #if not self.workspace_checker.within_workspace(new_point):
+            #    print("Warning: Action out of bounds. Clipping to workspace boundary.")
+            #    penalty = self._out_of_boundary_penalty
+            #    clipped_point = self.workspace_checker.clip_point(new_point)
+            #    action[0:3] = clipped_point - self._prev_state[0:3]
 
             # Do rotation clipping if limit is provided
             if self._rotation_limit is not None:

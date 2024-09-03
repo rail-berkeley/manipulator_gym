@@ -163,7 +163,7 @@ if __name__ == "__main__":
             logger = RLDSLogger(
                 observation_space=get_gym_space(_get_full_obs()),
                 action_space=get_gym_space(np.zeros(7, dtype=np.float32)),
-                dataset_name="test_rlds",
+                dataset_name="expert_demos",
                 directory=args.log_dir,
                 max_episodes_per_file=1,
                 step_metadata_info={"language_text": tfds.features.Text()},

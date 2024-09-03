@@ -82,11 +82,11 @@ if __name__ == "__main__":
     # example usage
     cuboids = [
         np.array([[0, 0, 0], [1, 1, 1]]),
-        np.array([[-2, 2, 0], [2.2, 3.2, 4.1]])
+        np.array([[0, 2, 0], [2.2, 3.2, 4.1]])
     ]
     cc = WorkspaceChecker(cuboids=cuboids)
-    # point = np.array([4, 4, 4])
-    point = np.array([0.5, 0.5, 0.5])
+    point = np.array([4, 4, 4])
+    # point = np.array([0.5, 0.5, 0.5])
     clipped_point = cc.clip_point(point)
 
     cc.visualize(point)

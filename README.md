@@ -231,7 +231,25 @@ cd octo
 python scripts/finetune.py --config=../manipulator_gym/viperx_finetune_config.py --config.pretrained_path=hf://rail-berkeley/octo-small
 ```
 
-We can also use the collected RLDS for OpenVLA finetuning, check out the doc in [openvla](https://github.com/openvla/openvla/) for more details.
+We can also use the collected RLDS for OpenVLA finetuning, check out the doc in [openvla](https://github.com/openvla/openvla/) for more details. Reference to this PR: https://github.com/openvla/openvla/pull/86.
+
+Create a such directory structure with the expert demos collected via `teleop.py`. The fine-tuned adapted checkpoints of VLA will be saved in `vla_storage/checkpoints`
+```
+~/vla_storage
+ |_ checkpoints
+ |_ expert_demos
+    |_ 0.1.0
+       |_ dataset_info.json
+       |_ features.json
+       |_ expert_demos-train.tfrecord....
+```
+
+```bash
+# we will use Single Node of 2 GPUs to finetune the model
+# adjust the args accordingly
+torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py --batch_size 4 --shuffle_buffer_size 10000 --lora_rank 32 \
+--data_root_dir ~/vla_storage --dataset_name expert_demos --run_root_dir ~/vla_storage/checkpoints --use_quantization true --save_steps 1000
+```
 
 ---
 

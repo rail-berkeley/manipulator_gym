@@ -217,7 +217,8 @@ Collect expert demonstations via teleop.
 # Usage
 # --log_dir to log the data in RLDS format, requires oxe_envlogger
 # --reset_pose <x y z r p y gripper> to reset the robot to a specific pose
-python manipulator_gym/teleop.py --ip <IP_ADDRESS> --log_dir <LOG_DIR>
+# --log_lang_text is an optional str to provide a text for language conditioned task
+python manipulator_gym/teleop.py --ip <IP_ADDRESS> --log_dir <LOG_DIR> --log_lang_text "pick up the something to something"
 ```
 
 (optional) Validate the generated log files by replaying on the robot gym env
@@ -225,11 +226,15 @@ python manipulator_gym/teleop.py --ip <IP_ADDRESS> --log_dir <LOG_DIR>
 python3 read_rlds.py --show_img --rlds_dir PATH_TO_LOGS  --replay 
 ```
 
+### Octo Finetuning
+
 Now finetune the model using the generated log files
 ```bash
 cd octo
 python scripts/finetune.py --config=../manipulator_gym/viperx_finetune_config.py --config.pretrained_path=hf://rail-berkeley/octo-small
 ```
+
+### OpenVLA Finetuning
 
 We can also use the collected RLDS for OpenVLA finetuning, check out the doc in [openvla](https://github.com/openvla/openvla/) for more details. Reference to this PR: https://github.com/openvla/openvla/pull/86.
 

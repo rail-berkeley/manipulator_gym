@@ -241,7 +241,8 @@ We can also use the collected RLDS for OpenVLA finetuning, check out the doc in 
 Create a such directory structure with the expert demos collected via `teleop.py`. The fine-tuned adapted checkpoints of VLA will be saved in `vla_storage/checkpoints`
 ```
 ~/vla_storage
- |_ checkpoints
+ |_ checkpoints             # full merged model checkpoints
+ |_ adapter_checkpoints     # adapter checkpoints
  |_ expert_demos
     |_ 0.1.0
        |_ dataset_info.json
@@ -253,8 +254,13 @@ Create a such directory structure with the expert demos collected via `teleop.py
 # we will use Single Node of 2 GPUs to finetune the model
 # adjust the args accordingly
 torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py --batch_size 4 --shuffle_buffer_size 10000 --lora_rank 32 \
---data_root_dir ~/vla_storage --dataset_name expert_demos --run_root_dir ~/vla_storage/checkpoints --use_quantization true --save_steps 1000
+--data_root_dir ~/vla_storage --dataset_name expert_demos --run_root_dir ~/vla_storage/checkpoints --adapter_tmp_dir  ~/vla_storage/adapter_checkpoints--use_quantization true --save_steps 1000 \
+--wandb_project <PROJECT_NAME> --wandb_entity <YOUR_WANDB_ACCOUNT>
 ```
+
+Evaluate the finetuned model
+```bash
+python policies/vla_eval.py --ip 128.32.175.45 --show_img --text_cond "move the eggplant from the basket to the center of the sink" --lora_adapter_dir <PATH_TO_ADAPTER_CHECKPOINT>
 
 ---
 

@@ -53,7 +53,8 @@ class CheckAndRebootJoints(gym.Wrapper):
         if res is not None:
             self.interface.reset(**{"go_sleep": True})
             for i, status in enumerate(res):
-                if status != 0:
+                # soemtime the status here is unreliable, so reboot all joints if previous failure
+                if status != 0 or any(self.motor_failed):
                     self.interface.custom_fn("reboot_motor", joint_name=self.widowx_joints[i])
 
         self.motor_failed = np.zeros_like(self.action_space.sample())

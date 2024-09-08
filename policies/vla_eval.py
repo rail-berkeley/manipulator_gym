@@ -5,6 +5,7 @@ This script to eval OpenVLA model on bridge data robot setup.
 from transformers import AutoModelForVision2Seq, AutoProcessor
 from PIL import Image
 
+import os
 import torch
 import time
 import peft
@@ -24,6 +25,7 @@ flags.DEFINE_string(
 )
 flags.DEFINE_string("lora_adapter_dir", None, "Path to the LORA adapter directory.")
 flags.DEFINE_bool("clip_actions", False, "Clip actions to 0.02")
+flags.DEFINE_string("dataset_stats", None, "Path to the dataset stats json file, default to brige_orig.")
 # Example lora_adapter_dir: "adapter-tmp/openvla-7b+serl_demos+b4+lr-2e-05+lora-r32+dropout-0.0+q-4bit/"
 
 
@@ -37,7 +39,11 @@ def main(_):
         manipulator_interface=ActionClientInterface(host=FLAGS.ip),
         # manipulator_interface=ManipulatorInterface(), # for testing
     )  # default doesn't use wrist cam
-    env = ClipActionBoxBoundary(env, workspace_boundary=[[0.0, -0.1, -0.5], [0.6, 0.5, 0.5]])
+    # NOTE: using the kitchen sink setup boundary of https://github.com/simpler-env/SimplerEnv
+    env = ClipActionBoxBoundary(env, workspace_boundary=[
+        [0.191, -0.229, 0.3],
+        [0.402, 0.229, 0.08]
+    ])
 
     # Load Processor & VLA
     processor = AutoProcessor.from_pretrained(
@@ -61,6 +67,16 @@ def main(_):
     else:
         vla = base_vla
 
+    # Load Dataset Statistics from Disk (if passing a path to a fine-tuned model)
+    if FLAGS.dataset_stats is not None:
+        assert "dataset_statistics.json" in FLAGS.dataset_stats, \
+            "Please provide the correct dataset statistics file."
+        path = os.path.expanduser(FLAGS.dataset_stats)
+        print(f"Loading dataset statistics from: {path}")
+        import json
+        with open(path, "r") as f:
+            vla.norm_stats = json.load(f)
+
     # format the prompt
     prompt = f"In: What action should the robot take to {FLAGS.text_cond}?\nOut:"
 
@@ -83,10 +99,9 @@ def main(_):
             image_cond = Image.fromarray(image)
             inputs = processor(prompt, image_cond).to(device, dtype=torch.bfloat16)
 
-            # Predict Action (7-DoF; un-normalize for BridgeData V2)
-            action = vla.predict_action(
-                **inputs, unnorm_key="bridge_orig", do_sample=False
-            )
+            # Predict Action (7-DoF; un-normalize for BridgeData V2) if dataset_stats is provided
+            unnorm_key = "bridge_orig" if FLAGS.dataset_stats == "bridge_orig" else "expert_demos" # TODO Fix this
+            action = vla.predict_action(**inputs, unnorm_key=unnorm_key, do_sample=False)
             assert (
                 len(action) == 7
             ), f"Action size should be in x, y, z, rx, ry, rz, gripper"

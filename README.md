@@ -266,17 +266,38 @@ python policies/vla_eval.py --ip 128.32.175.45 --show_img --text_cond "move the 
 
 ## Others
 
-- If you wish to directly wrap the gym env for distributed gym inference, you can directly use agentlace's [action env wrapper](https://github.com/youliangtan/agentlace/blob/main/examples/action_cartpole_env.py)
-- If you wish to save the raw teleop data in pkl format, indicate `--log_type pkl` when running the `teleop.py` script
-- TODO: create util scripts for wandb eval loggings
-- TODO: better interfaces with extend-able sensors and actuators (e.g. camera, bimanual manipulators, etc.)
+## FAQ
 
+1. Interbotix ROS Installation Error.
+
+```sh
+CMake Error at /opt/ros/noetic/share/catkin/cmake/empy.cmake:30 (message):
+  Unable to find either executable 'empy' or Python module 'em'...  try
+  installing the package 'python3-empy'
+Call Stack (most recent call first):
+  /opt/ros/noetic/share/catkin/cmake/all.cmake:164 (include)
+  /opt/ros/noetic/share/catkin/cmake/catkinConfig.cmake:20 (include)
+  CMakeLists.txt:58 (find_package)
+
+
+-- Configuring incomplete, errors occurred!
+See also "/home/pranav/interbotix_ws/build/CMakeFiles/CMakeOutput.log".
+Invoking "cmake" failed
+[ERROR] Failed to build Interbotix Arm ROS Packages.
+[ERROR] Interbotix Installation Failed!
+```
+
+Make sure that you are not running the installation in a conda environment. If you are, deactivate the conda environment and run the installation again.
 
 ## Notes
 
-This is still in active development. Open issues for wishlist and bugs.
+- If you wish to directly wrap the gym env for distributed gym inference, you can directly use agentlace's [action env wrapper](https://github.com/youliangtan/agentlace/blob/main/examples/action_cartpole_env.py)
+- If you wish to save the raw teleop data in pkl format, indicate `--log_type pkl` when running the `teleop.py` script
+- This is still in active development. Open issues for wishlist and bugs.
 
-In progress:
- - More interfaces (e.g. mujoco panda, franka, etc.)
- - More sim envs (e.g. robosuite etc.)
- - Cleaner impl of VR controller method with [oculus_reader](https://github.com/rail-berkeley/oculus_reader) to collect data with occulus vr controller (linear movement with controller, rotation with controller joystick)*
+ - In progress:
+  - More interfaces (e.g. mujoco panda, franka, etc.)
+  - More sim envs (e.g. robosuite etc.)
+  - create util scripts for wandb eval loggings
+  - better interfaces with extend-able sensors and actuators (e.g. camera, bimanual manipulators, etc.)
+  - Cleaner impl of VR controller method with [oculus_reader](https://github.com/rail-berkeley/oculus_reader) to collect data with occulus vr controller (linear movement with controller, rotation with controller joystick)*

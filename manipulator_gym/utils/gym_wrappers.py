@@ -12,8 +12,21 @@ class CheckAndRebootJoints(gym.Wrapper):
     When joints fail, truncate the episode, and reboot joints on reset.
     
     NOTE: this currently only works on the widowx interface.
+    
+    Args:
+    - env: gym environment
+    - interface: the interface to the robot
+    - check_every_n_steps: check whether the moter ahs failed every n steps, and 
+        keep track of the failure status. When failed, truncate the episode.
+    - force_reboot_per_episode: whether to force reboot all joints on reset.
     """
-    def __init__(self, env, interface, check_every_n_steps: int = 1):
+    def __init__(
+        self, 
+        env, 
+        interface, 
+        check_every_n_steps: int = 1,
+        force_reboot_per_episode: bool = False,
+    ):
         super().__init__(env)
         self.interface = interface
         self.widowx_joints = [
@@ -27,6 +40,7 @@ class CheckAndRebootJoints(gym.Wrapper):
         ]
         self.step_number = 0
         self.every_n_steps = check_every_n_steps
+        self.force_reboot_per_episode = force_reboot_per_episode
         self.motor_failed = np.zeros_like(self.action_space.sample())
     
     def step(self, action):
@@ -54,7 +68,7 @@ class CheckAndRebootJoints(gym.Wrapper):
             self.interface.reset(**{"go_sleep": True})
             for i, status in enumerate(res):
                 # soemtime the status here is unreliable, so reboot all joints if previous failure
-                if status != 0 or any(self.motor_failed):
+                if status != 0 or any(self.motor_failed) or self.force_reboot_per_episode:
                     self.interface.custom_fn("reboot_motor", joint_name=self.widowx_joints[i])
 
         self.motor_failed = np.zeros_like(self.action_space.sample())

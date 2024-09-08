@@ -252,10 +252,9 @@ if __name__ == "__main__":
 
             # check motor failure and reset it
             for i, status in enumerate(res):
-                if status != 0:
-                    joint_name = widowx_joints[i]
-                    print("Rebooting motor: ", joint_name)
-                    interface.custom_fn("reboot_motor", joint_name=joint_name)
+                joint_name = widowx_joints[i]
+                print("Rebooting motor: ", joint_name)
+                interface.custom_fn("reboot_motor", joint_name=joint_name)
 
             print_help()
 

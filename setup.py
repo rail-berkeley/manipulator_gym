@@ -14,6 +14,7 @@ setup(
         'gym >= 0.26',
         'kinpy',
         "pyspacemouse",
+        "pynput",
         # Add any other dependencies here
     ],
 )

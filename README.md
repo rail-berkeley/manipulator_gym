@@ -1,5 +1,7 @@
 # Manipulator Gym
 
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+
 > ⚠️ Still in early development, expect breaking changes ⚠️
 
 This package provides a common gym-like environment for policy to interact with a manipulator robot. The environment is based on the `gym` interface, and the robots are defined as `interfaces`. The abstracted robot interfaces is easily swappable, modularized and run distributedly. Common utilities are provided to assist users to run robot policies (e.g. octo) on the robot.
@@ -15,10 +17,9 @@ This package provides a common gym-like environment for policy to interact with 
 *more coming soon.... (etc. mujoco panda)*
 
 **Other useful features are also provided**
-- Eval script to run a robot policy [octo](https://octo-models.github.io/)
+- Eval script to run a robot policy [octo](https://octo-models.github.io/) and [openvla](https://openvla.github.io/)
 - Data collection script to collect data for RLDS training (also support remote data collection)
-- Fine-tuning script to finetune the octo model with the collected RLDS data
-
+- Fine-tuning script to finetune the robot policy with the collected RLDS data
 
 ## Installations:
 
@@ -216,7 +217,8 @@ Collect expert demonstations via teleop.
 # Usage
 # --log_dir to log the data in RLDS format, requires oxe_envlogger
 # --reset_pose <x y z r p y gripper> to reset the robot to a specific pose
-python manipulator_gym/teleop.py --ip <IP_ADDRESS> --log_dir <LOG_DIR>
+# --log_lang_text is an optional str to provide a text for language conditioned task
+python manipulator_gym/teleop.py --ip <IP_ADDRESS> --log_dir <LOG_DIR> --log_lang_text "pick up the something to something"
 ```
 
 (optional) Validate the generated log files by replaying on the robot gym env
@@ -224,19 +226,42 @@ python manipulator_gym/teleop.py --ip <IP_ADDRESS> --log_dir <LOG_DIR>
 python3 read_rlds.py --show_img --rlds_dir PATH_TO_LOGS  --replay 
 ```
 
+### Octo Finetuning
+
 Now finetune the model using the generated log files
 ```bash
 cd octo
 python scripts/finetune.py --config=../manipulator_gym/viperx_finetune_config.py --config.pretrained_path=hf://rail-berkeley/octo-small
 ```
 
-We can also use the collected RLDS for OpenVLA finetuning, check out the doc in [openvla](https://github.com/openvla/openvla/) for more details.
+### OpenVLA Finetuning
+
+We can also use the collected RLDS for OpenVLA finetuning, check out the doc in [openvla](https://github.com/openvla/openvla/) for more details. Reference to this PR: https://github.com/openvla/openvla/pull/86.
+
+Create a such directory structure with the expert demos collected via `teleop.py`. The fine-tuned adapted checkpoints of VLA will be saved in `vla_storage/checkpoints`
+```
+~/vla_storage
+ |_ checkpoints
+ |_ expert_demos
+    |_ 0.1.0
+       |_ dataset_info.json
+       |_ features.json
+       |_ expert_demos-train.tfrecord....
+```
+
+```bash
+# we will use Single Node of 2 GPUs to finetune the model
+# adjust the args accordingly
+torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py --batch_size 4 --shuffle_buffer_size 10000 --lora_rank 32 \
+--data_root_dir ~/vla_storage --dataset_name expert_demos --run_root_dir ~/vla_storage/checkpoints --use_quantization true --save_steps 1000
+```
 
 ---
 
 ## Others
 
 - If you wish to directly wrap the gym env for distributed gym inference, you can directly use agentlace's [action env wrapper](https://github.com/youliangtan/agentlace/blob/main/examples/action_cartpole_env.py)
+- If you wish to save the raw teleop data in pkl format, indicate `--log_type pkl` when running the `teleop.py` script
 - TODO: create util scripts for wandb eval loggings
 - TODO: better interfaces with extend-able sensors and actuators (e.g. camera, bimanual manipulators, etc.)
 

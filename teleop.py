@@ -93,9 +93,8 @@ if __name__ == "__main__":
     parser.add_argument("--log_type", type=str, default="rlds")
     parser.add_argument("--log_lang_text", type=str, default="null task")
     parser.add_argument("--reset_pose", nargs="+", type=float, default=None)
+    parser.add_argument("--track_workspace_limits", action="store_true", default=False)
     args = parser.parse_args()
-
-    recorded_transitions = []
 
     # if user specify where to reset the robot
     reset_kwargs = {}
@@ -103,6 +102,10 @@ if __name__ == "__main__":
         # e.g. np.array([0.26, 0.0, 0.26, 0.0, math.pi/2, 0.0, 1.0]),
         assert len(args.reset_pose) == 7, "Reset pose must 7 values"
         reset_kwargs = {"target_state": args.reset_pose}
+    
+    # if user want to track workspace limits
+    if args.track_workspace_limits:
+        xyz_min, xyz_max = np.array([1.0, 1.0, 1.0]) * np.inf, np.array([1.0, 1.0, 1.0]) * -np.inf
 
     interface = ActionClientInterface(host=args.ip, port=args.port)
 
@@ -180,6 +183,12 @@ if __name__ == "__main__":
     def _execute_action(action, first_step=False):
         obs = _get_full_obs()
         interface.step_action(action)
+        
+        if args.track_workspace_limits:
+            global xyz_min, xyz_max
+            xyz_min = np.minimum(xyz_min, interface.eef_pose[:3])
+            xyz_max = np.maximum(xyz_max, interface.eef_pose[:3])
+        
         if args.log_dir:
 
             if args.log_type == "rlds":
@@ -277,6 +286,12 @@ if __name__ == "__main__":
             _execute_action(action)
 
         show_video(interface)
+
+    if args.track_workspace_limits:
+        print("Workspace limits during teleop: ")
+        print("x_min: ", xyz_min[0], " // x_max: ", xyz_max[0])
+        print("y_min: ", xyz_min[1], " // y_max: ", xyz_max[1])
+        print("z_min: ", xyz_min[2], " // z_max: ", xyz_max[2])
 
     if args.log_dir:
         logger.close()

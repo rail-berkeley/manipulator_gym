@@ -22,6 +22,7 @@ flags.DEFINE_bool("show_img", False, "Whether to visualize the images or not.")
 flags.DEFINE_string(
     "text_cond", "put the banana on the plate", "Language prompt for the task."
 )
+flags.DEFINE_string("model_path", None, "Path to finetuned model")
 flags.DEFINE_string("lora_adapter_dir", None, "Path to the LORA adapter directory.")
 flags.DEFINE_bool("clip_actions", False, "Clip actions to 0.02")
 # Example lora_adapter_dir: "adapter-tmp/openvla-7b+serl_demos+b4+lr-2e-05+lora-r32+dropout-0.0+q-4bit/"
@@ -40,13 +41,14 @@ def main(_):
     env = ClipActionBoxBoundary(env, workspace_boundary=[[0.0, -0.1, -0.5], [0.6, 0.5, 0.5]])
 
     # Load Processor & VLA
+    model_path = "openvla/openvla-7b" if FLAGS.model_path is None else FLAGS.model_path
     processor = AutoProcessor.from_pretrained(
-        "openvla/openvla-7b", trust_remote_code=True
+        model_path, trust_remote_code=True
     )
     base_vla = AutoModelForVision2Seq.from_pretrained(
-        "openvla/openvla-7b",
+        model_path,
         # attn_implementation="flash_attention_2",  # [Optional] Requires `flash_attn`
-        torch_dtype=torch.float32,
+        torch_dtype=torch.bfloat16,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
     ).to(device)
@@ -81,7 +83,7 @@ def main(_):
                     break
 
             image_cond = Image.fromarray(image)
-            inputs = processor(prompt, image_cond).to(device, dtype=torch.float32)
+            inputs = processor(prompt, image_cond).to(device, dtype=torch.bfloat16)
 
             # Predict Action (7-DoF; un-normalize for BridgeData V2)
             action = vla.predict_action(

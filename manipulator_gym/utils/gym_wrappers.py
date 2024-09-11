@@ -65,7 +65,7 @@ class CheckAndRebootJoints(gym.Wrapper):
         # reset joints on reset
         res = self.interface.custom_fn("motor_status")
         if res is not None:
-            self.interface.reset(**{"go_sleep": True})
+            self.env.reset(**{"go_sleep": True})
             for i, status in enumerate(res):
                 # soemtime the status here is unreliable, so reboot all joints if previous failure
                 if status != 0 or any(self.motor_failed) or self.force_reboot_per_episode:
@@ -73,6 +73,8 @@ class CheckAndRebootJoints(gym.Wrapper):
 
         self.motor_failed = np.zeros_like(self.action_space.sample())
         
+        null_action = np.zeros(7)
+        self.env.step(null_action)  # need to do this so the reset below is not sudden
         return self.env.reset(**kwargs)
                 
                 

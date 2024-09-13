@@ -77,7 +77,8 @@ class WidowXInterface(ViperXInterface):
               reset_pose=True,
               target_state=np.array(
                   np.array([0.258325, 0, 0.19065, 0, math.pi/2, 0, 1.0])),
-              go_sleep=False
+              go_sleep=False,
+              moving_time=None,
               ) -> bool:
         """
         Override function from base class
@@ -92,7 +93,7 @@ class WidowXInterface(ViperXInterface):
                 self._gripper.close(delay=0.1)
             self.move_eef(target_state[:6])
             if go_sleep:
-                self._arm.go_to_sleep_pose()
+                self._arm.go_to_sleep_pose(moving_time=moving_time)
         return True
 
     def _move_eef_relative(self, dx=0, dy=0, dz=0, drx=0, dry=0, drz=0):

@@ -151,7 +151,6 @@ if __name__ == "__main__":
         }
         if interface.wrist_img is not None:
             obs["image_wrist"] = interface.wrist_img
-        print("State: ", interface.gripper_state)
         return obs
 
     if args.log_dir:

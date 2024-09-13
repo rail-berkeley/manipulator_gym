@@ -29,6 +29,7 @@ flags.DEFINE_string("ip", "localhost", "IP address of the robot server.")
 flags.DEFINE_bool("show_img", False, "Whether to visualize the images or not.")
 flags.DEFINE_string("text_cond", "put the banana on the plate", "Language prompt for the task.")
 flags.DEFINE_bool("clip_actions", False, "Clip actions to 0.02")
+flags.DEFINE_string("dataset_stats", "bridge_dataset", "Name of dataset, stats to use for normalization.")
 
 def main(_):
     # load finetuned model
@@ -96,7 +97,7 @@ def main(_):
                 jax.tree_map(lambda x: x[None], obs), 
                 task,
                 # NOTE: we are using bridge_dataset's statistics for default normalization
-                unnormalization_statistics=model.dataset_statistics["bridge_dataset"]["action"],
+                unnormalization_statistics=model.dataset_statistics[FLAGS.dataset_stats]["action"],
                 rng=jax.random.PRNGKey(0)
             )
             actions = actions[0]

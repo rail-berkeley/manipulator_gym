@@ -68,6 +68,7 @@ def main(_):
         vla = base_vla
 
     # Load Dataset Statistics from Disk (if passing a path to a fine-tuned model)
+    unnorm_key = FLAGS.dataset_stats
     if ".json" in FLAGS.dataset_stats:
         assert "dataset_statistics.json" in FLAGS.dataset_stats, \
             "Please provide the correct dataset statistics file."
@@ -77,12 +78,11 @@ def main(_):
         with open(path, "r") as f:
             vla.norm_stats = json.load(f)
 
-    # Get key for un-normalization
-    if ".json" in FLAGS.dataset_stats:
-        # 2 level up of the path
-        unnorm_key = os.path.join(*FLAGS.dataset_stats.split("/")[:-2])
-    else:
-        unnorm_key = FLAGS.dataset_stats
+            # assume only one key in the .json file and gets the key
+            dataset_names = vla.norm_stats.keys()
+            assert len(dataset_names) == 1, "Only one dataset name should be in the .json file."
+            unnorm_key = list(dataset_names)[0]
+
     print(f"Un-normalization key: {unnorm_key}")
 
     # format the prompt

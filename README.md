@@ -221,6 +221,9 @@ Collect expert demonstations via teleop.
 python manipulator_gym/teleop.py --ip <IP_ADDRESS> --log_dir <LOG_DIR> --log_lang_text "pick up the something to something"
 ```
 
+Data is saved as a trajectory per shard. When click on `r`, this will reset the robot and start a new trajectory. When click on `q`, this will stop the teleop and save the data.
+
+
 (optional) Validate the generated log files by replaying on the robot gym env
 ```bash
 python3 read_rlds.py --show_img --rlds_dir PATH_TO_LOGS  --replay 
@@ -233,6 +236,8 @@ Now finetune the model using the generated log files
 cd octo
 python scripts/finetune.py --config=../manipulator_gym/viperx_finetune_config.py --config.pretrained_path=hf://rail-berkeley/octo-small
 ```
+
+Lastly,, evaluate the finetuned model with the same `octo_eval.py` script as above. (provide the new chkpt and dataset stats)
 
 ### OpenVLA Finetuning
 
@@ -261,6 +266,8 @@ torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py --ba
 Evaluate the finetuned model
 ```bash
 python policies/vla_eval.py --ip 128.32.175.45 --show_img --text_cond "move the eggplant from the basket to the center of the sink" --lora_adapter_dir <PATH_TO_ADAPTER_CHECKPOINT>
+--dataset_stats <PATH_TO_DATASET_STATS>
+```
 
 ---
 

@@ -301,7 +301,7 @@ Make sure that you are not running the installation in a conda environment. If y
 - If you wish to directly wrap the gym env for distributed gym inference, you can directly use agentlace's [action env wrapper](https://github.com/youliangtan/agentlace/blob/main/examples/action_cartpole_env.py)
 - If you wish to save the raw teleop data in pkl format, indicate `--log_type pkl` when running the `teleop.py` script
 - This is still in active development. Open issues for wishlist and bugs.
-
+- If you wish to add new robot interface and new control method, it should be easy by adding new interface in `manipulator_gym/interfaces`. Feel free to open a PR for review.
  - In progress:
   - More interfaces (e.g. mujoco panda, franka, etc.)
   - More sim envs (e.g. robosuite etc.)

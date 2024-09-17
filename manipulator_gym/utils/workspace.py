@@ -9,6 +9,7 @@ class WorkspaceChecker:
     """
     def __init__(self, cuboids: List[np.array]):
         """The cuboids define the valid workspace boundaries."""
+        cuboids = [np.array(cuboid) for cuboid in cuboids]
         assert len(cuboids) > 0, "At least one cuboid is required."
         assert all([cuboid.shape == (2, 3) for cuboid in cuboids]), "Cuboids must be of shape (2, 3)."
         self.cuboids = cuboids

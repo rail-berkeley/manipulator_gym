@@ -188,7 +188,7 @@ class ClipActionBoxBoundary(gym.Wrapper):
         if self._prev_state is not None:
             new_point = self._prev_state[0:3] + action[0:3]
             if not self.workspace_checker.within_workspace(new_point):
-                print("Warning: Action out of bounds. Clipping to workspace boundary.")
+                print(f"Warning: Action to {new_point} is out of bound. Clipping to workspace boundary.")
                 penalty = self._out_of_boundary_penalty
                 clipped_point = self.workspace_checker.clip_point(new_point)
                 action[0:3] = clipped_point - self._prev_state[0:3]

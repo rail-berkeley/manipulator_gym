@@ -238,7 +238,8 @@ if __name__ == "__main__":
         elif key == ord("r"):
             print("Resetting robot...")
             _execute_reset()
-            is_open = (interface.gripper_state > 0.5)
+            is_open = (interface.gripper_state > 0.25)
+            print("Gripper is now: ", is_open, interface.gripper_state)
             print_help()
         elif key == ord("g"):
             print("Going to sleep... make sure server has this method")
@@ -276,7 +277,7 @@ if __name__ == "__main__":
             if np.any(action[:6] > 0.001) or np.any(action[:6] < -0.001):
                 _execute_action(action)
             # keep command gripper if gripper state is different
-            if (interface.gripper_state > 0.5) != is_open:
+            if (interface.gripper_state > 0.25) != is_open:
                 _execute_action(action)
 
         # command robot with keyboard (event based)

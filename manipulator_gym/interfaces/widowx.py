@@ -110,6 +110,14 @@ class WidowXInterface(ViperXInterface):
             custom_guess=self._arm.get_joint_commands(),
         )
 
+    def move_gripper(self, grip_state: float):
+        """WidowX gripper state is between 0 and 0.39 (fully open)"""
+        if grip_state > 0.25:
+            self._gripper.open(delay=0.1)
+        else:
+            self._gripper.close(delay=0.1)
+        return True
+
     def motor_status(self) -> np.ndarray:
         """
         Check if there are any hardware errors

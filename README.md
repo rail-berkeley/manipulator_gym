@@ -221,6 +221,9 @@ Collect expert demonstations via teleop.
 python manipulator_gym/teleop.py --ip <IP_ADDRESS> --log_dir <LOG_DIR> --log_lang_text "pick up the something to something"
 ```
 
+Data is saved as a trajectory per shard. When click on `r`, this will reset the robot and start a new trajectory. When click on `q`, this will stop the teleop and save the data.
+
+
 (optional) Validate the generated log files by replaying on the robot gym env
 ```bash
 python3 read_rlds.py --show_img --rlds_dir PATH_TO_LOGS  --replay 
@@ -234,6 +237,8 @@ cd octo
 python scripts/finetune.py --config=../manipulator_gym/viperx_finetune_config.py --config.pretrained_path=hf://rail-berkeley/octo-small
 ```
 
+Lastly,, evaluate the finetuned model with the same `octo_eval.py` script as above. (provide the new chkpt and dataset stats)
+
 ### OpenVLA Finetuning
 
 We can also use the collected RLDS for OpenVLA finetuning, check out the doc in [openvla](https://github.com/openvla/openvla/) for more details. Reference to this PR: https://github.com/openvla/openvla/pull/86.
@@ -241,7 +246,8 @@ We can also use the collected RLDS for OpenVLA finetuning, check out the doc in 
 Create a such directory structure with the expert demos collected via `teleop.py`. The fine-tuned adapted checkpoints of VLA will be saved in `vla_storage/checkpoints`
 ```
 ~/vla_storage
- |_ checkpoints
+ |_ checkpoints             # full merged model checkpoints
+ |_ adapter_checkpoints     # adapter checkpoints
  |_ expert_demos
     |_ 0.1.0
        |_ dataset_info.json
@@ -253,24 +259,52 @@ Create a such directory structure with the expert demos collected via `teleop.py
 # we will use Single Node of 2 GPUs to finetune the model
 # adjust the args accordingly
 torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py --batch_size 4 --shuffle_buffer_size 10000 --lora_rank 32 \
---data_root_dir ~/vla_storage --dataset_name expert_demos --run_root_dir ~/vla_storage/checkpoints --use_quantization true --save_steps 1000
+--data_root_dir ~/vla_storage --dataset_name expert_demos --run_root_dir ~/vla_storage/checkpoints --adapter_tmp_dir  ~/vla_storage/adapter_checkpoints--use_quantization true --save_steps 1000 \
+--wandb_project <PROJECT_NAME> --wandb_entity <YOUR_WANDB_ACCOUNT>
+```
+
+Evaluate the finetuned model
+```bash
+python policies/vla_eval.py --ip 128.32.175.45 --show_img --text_cond "move the eggplant from the basket to the center of the sink" --lora_adapter_dir <PATH_TO_ADAPTER_CHECKPOINT>
+--dataset_stats <PATH_TO_DATASET_STATS>
 ```
 
 ---
 
 ## Others
 
-- If you wish to directly wrap the gym env for distributed gym inference, you can directly use agentlace's [action env wrapper](https://github.com/youliangtan/agentlace/blob/main/examples/action_cartpole_env.py)
-- If you wish to save the raw teleop data in pkl format, indicate `--log_type pkl` when running the `teleop.py` script
-- TODO: create util scripts for wandb eval loggings
-- TODO: better interfaces with extend-able sensors and actuators (e.g. camera, bimanual manipulators, etc.)
+## FAQ
 
+1. Interbotix ROS Installation Error.
+
+```sh
+CMake Error at /opt/ros/noetic/share/catkin/cmake/empy.cmake:30 (message):
+  Unable to find either executable 'empy' or Python module 'em'...  try
+  installing the package 'python3-empy'
+Call Stack (most recent call first):
+  /opt/ros/noetic/share/catkin/cmake/all.cmake:164 (include)
+  /opt/ros/noetic/share/catkin/cmake/catkinConfig.cmake:20 (include)
+  CMakeLists.txt:58 (find_package)
+
+
+-- Configuring incomplete, errors occurred!
+See also "/home/pranav/interbotix_ws/build/CMakeFiles/CMakeOutput.log".
+Invoking "cmake" failed
+[ERROR] Failed to build Interbotix Arm ROS Packages.
+[ERROR] Interbotix Installation Failed!
+```
+
+Make sure that you are not running the installation in a conda environment. If you are, deactivate the conda environment and run the installation again.
 
 ## Notes
 
-This is still in active development. Open issues for wishlist and bugs.
-
-In progress:
- - More interfaces (e.g. mujoco panda, franka, etc.)
- - More sim envs (e.g. robosuite etc.)
- - Cleaner impl of VR controller method with [oculus_reader](https://github.com/rail-berkeley/oculus_reader) to collect data with occulus vr controller (linear movement with controller, rotation with controller joystick)*
+- If you wish to directly wrap the gym env for distributed gym inference, you can directly use agentlace's [action env wrapper](https://github.com/youliangtan/agentlace/blob/main/examples/action_cartpole_env.py)
+- If you wish to save the raw teleop data in pkl format, indicate `--log_type pkl` when running the `teleop.py` script
+- This is still in active development. Open issues for wishlist and bugs.
+- If you wish to add new robot interface and new control method, it should be easy by adding new interface in `manipulator_gym/interfaces`. Feel free to open a PR for review.
+ - In progress:
+  - More interfaces (e.g. mujoco panda, franka, etc.)
+  - More sim envs (e.g. robosuite etc.)
+  - create util scripts for wandb eval loggings
+  - better interfaces with extend-able sensors and actuators (e.g. camera, bimanual manipulators, etc.)
+  - Cleaner impl of VR controller method with [oculus_reader](https://github.com/rail-berkeley/oculus_reader) to collect data with occulus vr controller (linear movement with controller, rotation with controller joystick)*

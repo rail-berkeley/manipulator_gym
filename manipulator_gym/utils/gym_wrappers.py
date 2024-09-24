@@ -10,20 +10,21 @@ class CheckAndRebootJoints(gym.Wrapper):
     """
     Every step, check whether joints have failed and reboot them if necessary.
     When joints fail, truncate the episode, and reboot joints on reset.
-    
+
     NOTE: this currently only works on the widowx interface.
-    
+
     Args:
     - env: gym environment
     - interface: the interface to the robot
-    - check_every_n_steps: check whether the moter ahs failed every n steps, and 
+    - check_every_n_steps: check whether the moter ahs failed every n steps, and
         keep track of the failure status. When failed, truncate the episode.
     - force_reboot_per_episode: whether to force reboot all joints on reset.
     """
+
     def __init__(
-        self, 
-        env, 
-        interface, 
+        self,
+        env,
+        interface,
         check_every_n_steps: int = 1,
         force_reboot_per_episode: bool = False,
     ):
@@ -42,43 +43,50 @@ class CheckAndRebootJoints(gym.Wrapper):
         self.every_n_steps = check_every_n_steps
         self.force_reboot_per_episode = force_reboot_per_episode
         self.motor_failed = np.zeros_like(self.action_space.sample())
-    
+
     def step(self, action):
         self.step_number += 1
         res = self.interface.custom_fn("motor_status")
-        
+
         if res is not None and self.step_number % self.every_n_steps == 0:
             for i, status in enumerate(res):
                 if status != 0:
                     self.motor_failed[i] = status
                     break
-        
+
         obs, reward, done, trunc, info = self.env.step(action)
         if any(self.motor_failed):
             trunc = True
-        
+
         return obs, reward, done, trunc, info
-    
+
     def reset(self, **kwargs):
         self.step_number = 0
-        
+
         # reset joints on reset
         res = self.interface.custom_fn("motor_status")
         if res is not None:
             self.env.reset(**{"go_sleep": True})
             for i, status in enumerate(res):
                 # soemtime the status here is unreliable, so reboot all joints if previous failure
-                if status != 0 or any(self.motor_failed) or self.force_reboot_per_episode:
-                    self.interface.custom_fn("reboot_motor", joint_name=self.widowx_joints[i])
+                if (
+                    status != 0
+                    or any(self.motor_failed)
+                    or self.force_reboot_per_episode
+                ):
+                    self.interface.custom_fn(
+                        "reboot_motor", joint_name=self.widowx_joints[i]
+                    )
 
         self.motor_failed = np.zeros_like(self.action_space.sample())
-        
+
         null_action = np.zeros(7)
         self.env.step(null_action)  # need to do this so the reset below is not sudden
         return self.env.reset(**kwargs)
-                
-                
+
+
 ##############################################################################
+
 
 class ConvertState2Proprio(gym.Wrapper):
     """
@@ -110,6 +118,7 @@ class ConvertState2Proprio(gym.Wrapper):
 
 ##############################################################################
 
+
 class ResizeObsImageWrapper(gym.Wrapper):
     """
     resize imags in obs to comply to octo model input
@@ -135,7 +144,8 @@ class ResizeObsImageWrapper(gym.Wrapper):
         for key in self.resize_size:
             if key not in self.env.observation_space.spaces:
                 logging.warning(
-                    f"Key {key} not in observation_space, ignoring resize for {key}")
+                    f"Key {key} not in observation_space, ignoring resize for {key}"
+                )
 
     def step(self, action):
         obs, reward, done, trunc, info = self.env.step(action)
@@ -156,17 +166,19 @@ class ResizeObsImageWrapper(gym.Wrapper):
 
 ##############################################################################
 
+
 class ClipActionBoxBoundary(gym.Wrapper):
     """
     clip the action to the boundary, ensure ["state"] is provided in obs
     """
 
-    def __init__(self,
-                 env: gym.Env,
-                 workspace_boundary: np.array,
-                 rotation_limit: Optional[float] = None,
-                 out_of_boundary_penalty: float = 0.0,
-                 ):
+    def __init__(
+        self,
+        env: gym.Env,
+        workspace_boundary: np.array,
+        rotation_limit: Optional[float] = None,
+        out_of_boundary_penalty: float = 0.0,
+    ):
         """
         Args:
         - env: gym environment
@@ -180,7 +192,9 @@ class ClipActionBoxBoundary(gym.Wrapper):
         self._out_of_boundary_penalty = out_of_boundary_penalty
         self._rotation_limit = rotation_limit
         self.workspace_checker = WorkspaceChecker([workspace_boundary])
-        assert "state" in self.env.observation_space.spaces, "state not in observation space"
+        assert (
+            "state" in self.env.observation_space.spaces
+        ), "state not in observation space"
 
     def step(self, action):
         """standard gym step function"""
@@ -188,7 +202,9 @@ class ClipActionBoxBoundary(gym.Wrapper):
         if self._prev_state is not None:
             new_point = self._prev_state[0:3] + action[0:3]
             if not self.workspace_checker.within_workspace(new_point):
-                print(f"Warning: Action to {new_point} is out of bound. Clipping to workspace boundary.")
+                print(
+                    f"Warning: Action to {new_point} is out of bound. Clipping to workspace boundary."
+                )
                 penalty = self._out_of_boundary_penalty
                 clipped_point = self.workspace_checker.clip_point(new_point)
                 action[0:3] = clipped_point - self._prev_state[0:3]
@@ -197,10 +213,16 @@ class ClipActionBoxBoundary(gym.Wrapper):
             if self._rotation_limit is not None:
                 new_rot = self._prev_state[3:6] + action[3:6]
 
-                if np.any(new_rot < self._rotation_limit[0]) or np.any(new_rot > self._rotation_limit[1]):
-                    print("Warning: Rotation out of bounds. Clipping to rotation boundary.")
+                if np.any(new_rot < self._rotation_limit[0]) or np.any(
+                    new_rot > self._rotation_limit[1]
+                ):
+                    print(
+                        "Warning: Rotation out of bounds. Clipping to rotation boundary."
+                    )
                     penalty = self._out_of_boundary_penalty
-                    clipped_rot = np.clip(new_rot, self._rotation_limit[0], self._rotation_limit[1])
+                    clipped_rot = np.clip(
+                        new_rot, self._rotation_limit[0], self._rotation_limit[1]
+                    )
                     action[3:6] = clipped_rot - self._prev_state[3:6]
 
         obs, reward, done, trunc, info = self.env.step(action)
@@ -222,18 +244,21 @@ class ClipActionBoxBoundary(gym.Wrapper):
 
 ##############################################################################
 
+
 class ClipActionMultiBoxBoundary(ClipActionBoxBoundary):
     """
     User can provide multiple cubloids to define the workspace boundary.
-    
+
     Action clipping, ensure ["state"] is provided in obs
     """
-    def __init__(self,
-                 env: gym.Env,
-                 cubloids: List[np.array],
-                 rotation_limit: Optional[float] = None,
-                 out_of_boundary_penalty: float = 0.0,
-                 ):
+
+    def __init__(
+        self,
+        env: gym.Env,
+        cubloids: List[np.array],
+        rotation_limit: Optional[float] = None,
+        out_of_boundary_penalty: float = 0.0,
+    ):
         """
         Args:
         - env: gym environment
@@ -248,4 +273,6 @@ class ClipActionMultiBoxBoundary(ClipActionBoxBoundary):
         self._rotation_limit = rotation_limit
 
         self.workspace_checker = WorkspaceChecker(cubloids)
-        assert "state" in self.env.observation_space.spaces, "state not in observation space"
+        assert (
+            "state" in self.env.observation_space.spaces
+        ), "state not in observation space"

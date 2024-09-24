@@ -11,6 +11,7 @@ class ManipulatorInterface(ABC):
     is used for the gym env to interact with the a manipulator robot.
     # TODO: define @abstractmethod for each method
     """
+
     # This defines the step_action() input action space shape
     step_action_shape = 7
 
@@ -20,7 +21,7 @@ class ManipulatorInterface(ABC):
     @property
     def eef_pose(self) -> np.ndarray:
         """return the [x, y, z, rx, ry, rz] of the end effector"""
-        return np.ones(6, dtype=np.float64)*0.3
+        return np.ones(6, dtype=np.float64) * 0.3
 
     @property
     def gripper_state(self) -> float:

@@ -25,15 +25,27 @@ def eulerAnglesToRotationMatrix(roll, pitch, yaw):
     """
     Convert euler angles to rotation matrix
     """
-    R_x = np.array([[1, 0, 0],
-                    [0, math.cos(roll), -math.sin(roll)],
-                    [0, math.sin(roll), math.cos(roll)]])
-    R_y = np.array([[math.cos(pitch), 0, math.sin(pitch)],
-                    [0, 1, 0],
-                    [-math.sin(pitch), 0, math.cos(pitch)]])
-    R_z = np.array([[math.cos(yaw), -math.sin(yaw), 0],
-                    [math.sin(yaw), math.cos(yaw), 0],
-                    [0, 0, 1]])
+    R_x = np.array(
+        [
+            [1, 0, 0],
+            [0, math.cos(roll), -math.sin(roll)],
+            [0, math.sin(roll), math.cos(roll)],
+        ]
+    )
+    R_y = np.array(
+        [
+            [math.cos(pitch), 0, math.sin(pitch)],
+            [0, 1, 0],
+            [-math.sin(pitch), 0, math.cos(pitch)],
+        ]
+    )
+    R_z = np.array(
+        [
+            [math.cos(yaw), -math.sin(yaw), 0],
+            [math.sin(yaw), math.cos(yaw), 0],
+            [0, 0, 1],
+        ]
+    )
     return np.dot(R_z, np.dot(R_y, R_x))
 
 
@@ -43,9 +55,8 @@ def convert_img(data):
     errors on nvidia jetson
     """
     dtype = np.dtype("uint8")  # Hardcode to 8 bits...
-    dtype = dtype.newbyteorder('>' if data.is_bigendian else '<')
-    return np.ndarray(shape=(data.height, data.width, 3),
-                      dtype=dtype, buffer=data.data)
+    dtype = dtype.newbyteorder(">" if data.is_bigendian else "<")
+    return np.ndarray(shape=(data.height, data.width, 3), dtype=dtype, buffer=data.data)
 
 
 class WorkspaceBoundary:
@@ -53,6 +64,7 @@ class WorkspaceBoundary:
     This class defines the workspace boundary of the robot.
     TODO (YL)
     """
+
     @staticmethod
     def make_from_rectangular_boundary(lower_bound, upper_bound):
         """

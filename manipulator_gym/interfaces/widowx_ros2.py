@@ -5,8 +5,10 @@ import cv2
 from interbotix_xs_modules.xs_robot.arm import InterbotixManipulatorXS
 
 from manipulator_gym.interfaces.base_interface import ManipulatorInterface
-from manipulator_gym.utils.utils import \
-    rotationMatrixToEulerAngles, eulerAnglesToRotationMatrix
+from manipulator_gym.utils.utils import (
+    rotationMatrixToEulerAngles,
+    eulerAnglesToRotationMatrix,
+)
 
 ##############################################################################
 
@@ -21,11 +23,13 @@ class WidowXRos2Interface(ManipulatorInterface):
         self._bot = InterbotixManipulatorXS("wx250s", "arm", "gripper")
         self._arm = self._bot.arm
         self._gripper = self._bot.gripper
-        
+
         print("Using camera ids: ", cam_ids)
         self._caps = []
         for id in cam_ids:
-            self._caps.append(cv2.VideoCapture(id)) # Initialize the VideoCapture object
+            self._caps.append(
+                cv2.VideoCapture(id)
+            )  # Initialize the VideoCapture object
         assert len(self._caps) <= 2, "Only 2 cameras are supported"
         self.blocking_control = blocking_control
 
@@ -56,8 +60,7 @@ class WidowXRos2Interface(ManipulatorInterface):
     def gripper_state(self) -> float:
         # Exact ref implementation:
         # https://github.com/Interbotix/interbotix_ros_toolboxes/blob/0c739cdab1dbab03d79e752b43fa3db14d5bb15e/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/gripper.py#L62
-        gripper_pos = \
-            self._gripper.core.joint_states.position[-3]
+        gripper_pos = self._gripper.core.joint_states.position[-3]
         return gripper_pos
 
     def step_action(self, action: np.ndarray) -> bool:
@@ -68,8 +71,12 @@ class WidowXRos2Interface(ManipulatorInterface):
         print("running action: ", action)
         action[:6] = np.clip(action[:6], -0.01, 0.01)
         self._move_eef_relative(
-            dx=action[0], dy=action[1], dz=action[2],
-            drx=action[3], dry=action[4], drz=action[5]
+            dx=action[0],
+            dy=action[1],
+            dz=action[2],
+            drx=action[3],
+            dry=action[4],
+            drz=action[5],
         )
         if action[6] > 0.5:
             print("open gripper", self.gripper_state)
@@ -83,7 +90,7 @@ class WidowXRos2Interface(ManipulatorInterface):
         """Override function from base class"""
         print("Reset robot interface, reset to home pose?: ", reset_pose)
         if reset_pose:
-            self.move_eef(np.array([0.258325, 0, 0.19065, 0, math.pi/2, 0]))
+            self.move_eef(np.array([0.258325, 0, 0.19065, 0, math.pi / 2, 0]))
             self._gripper.release()
         return True
 
@@ -116,7 +123,7 @@ class WidowXRos2Interface(ManipulatorInterface):
         self._arm.capture_joint_positions()
         self._arm.set_trajectory_time(moving_time=4.0, accel_time=2.0)
         self._arm.set_ee_pose_matrix(H_mat, moving_time=4.0)
-        self._move_eef_relative(0, 0, 0, 0, 0, 0) # TODO FIx bug in compliance control
+        self._move_eef_relative(0, 0, 0, 0, 0, 0)  # TODO FIx bug in compliance control
         return True
 
     def move_gripper(self, grip_state: float):

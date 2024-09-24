@@ -5,8 +5,11 @@ import numpy as np
 import math
 
 from manipulator_gym.interfaces.base_interface import ManipulatorInterface
-from manipulator_gym.utils.utils import convert_img, \
-    rotationMatrixToEulerAngles, eulerAnglesToRotationMatrix
+from manipulator_gym.utils.utils import (
+    convert_img,
+    rotationMatrixToEulerAngles,
+    eulerAnglesToRotationMatrix,
+)
 
 from interbotix_xs_modules.arm import InterbotixManipulatorXS
 
@@ -15,10 +18,11 @@ np.set_printoptions(precision=3, suppress=True)
 
 ##############################################################################
 
+
 class ViperXInterface(ManipulatorInterface):
     """
-    https://github.com/Interbotix/interbotix_ros_toolboxes/blob/main/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/arm.py   
-    
+    https://github.com/Interbotix/interbotix_ros_toolboxes/blob/main/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/arm.py
+
     For camera images, we expect the images are published to the
     following topics via ROS:
       - "/gripper_cam/image_raw"
@@ -29,13 +33,16 @@ class ViperXInterface(ManipulatorInterface):
 
     def __init__(self, init_node=True, blocking_control=True):
         self._bot = InterbotixManipulatorXS(
-            "vx300s", "arm", "gripper", init_node=init_node)
+            "vx300s", "arm", "gripper", init_node=init_node
+        )
         self._arm = self._bot.arm
         self._gripper = self._bot.gripper
         self._cam_sub1 = rospy.Subscriber(
-            "/gripper_cam/image_raw", Image, self._update_wrist_cam)
+            "/gripper_cam/image_raw", Image, self._update_wrist_cam
+        )
         self._cam_sub2 = rospy.Subscriber(
-            "/third_perp_cam/image_raw", Image, self._update_primary_cam)
+            "/third_perp_cam/image_raw", Image, self._update_primary_cam
+        )
         self._side_img = np.array((480, 640, 3), dtype=np.uint8)
         self._wrist_img = np.array((480, 640, 3), dtype=np.uint8)
         self.blocking_control = blocking_control
@@ -56,8 +63,9 @@ class ViperXInterface(ManipulatorInterface):
     def gripper_state(self) -> float:
         # Exact ref implementation:
         # https://github.com/Interbotix/interbotix_ros_toolboxes/blob/0c739cdab1dbab03d79e752b43fa3db14d5bb15e/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/gripper.py#L62
-        gripper_pos = \
-            self._gripper.core.joint_states.position[self._gripper.left_finger_index]
+        gripper_pos = self._gripper.core.joint_states.position[
+            self._gripper.left_finger_index
+        ]
         # NOTE: explicitly scale the value of the gripper pos
         gripper_pos = (gripper_pos - 0.01) / (0.08 - 0.01)
         return gripper_pos
@@ -69,12 +77,14 @@ class ViperXInterface(ManipulatorInterface):
         """
         assert len(action) == 7, "action is not 7D"
         # move the end effector, Not that dz is up and down, dy is left and right
-        self._move_eef_relative(dx=action[0],
-                                dy=action[1],
-                                dz=action[2],
-                                drx=action[3],
-                                dry=action[4],
-                                drz=action[5])
+        self._move_eef_relative(
+            dx=action[0],
+            dy=action[1],
+            dz=action[2],
+            drx=action[3],
+            dry=action[4],
+            drz=action[5],
+        )
         if action[6] > 0.5:
             self._gripper.open(delay=0.1)
         else:
@@ -106,11 +116,12 @@ class ViperXInterface(ManipulatorInterface):
             self._gripper.close(delay=0.1)
         return True
 
-    def reset(self,
-              reset_pose=True,
-              target_state=np.array([0.26, 0.0, 0.26, 0.0, math.pi/2, 0.0, 1.0]),
-              go_sleep=False,
-        ) -> bool:
+    def reset(
+        self,
+        reset_pose=True,
+        target_state=np.array([0.26, 0.0, 0.26, 0.0, math.pi / 2, 0.0, 1.0]),
+        go_sleep=False,
+    ) -> bool:
         """Override function from base class"""
         print("Reset robot interface, reset to home pose?: ", reset_pose)
         if reset_pose:

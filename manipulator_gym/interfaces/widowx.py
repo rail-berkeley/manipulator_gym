@@ -13,9 +13,10 @@ from interbotix_xs_modules.arm import InterbotixManipulatorXS
 
 ##############################################################################
 
+
 class WidowXInterface(ViperXInterface):
     """
-    https://github.com/Interbotix/interbotix_ros_toolboxes/blob/main/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/arm.py   
+    https://github.com/Interbotix/interbotix_ros_toolboxes/blob/main/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/arm.py
     """
 
     def __init__(self, init_node=True, blocking_control=True, cam_ids=None):
@@ -25,16 +26,19 @@ class WidowXInterface(ViperXInterface):
                 if None, use ROS subscribers to get images
         """
         self._bot = InterbotixManipulatorXS(
-            "wx250s", "arm", "gripper", init_node=init_node)
+            "wx250s", "arm", "gripper", init_node=init_node
+        )
         self._arm = self._bot.arm
         self._gripper = self._bot.gripper
 
         # user have the option to use rossub or native opencv to read camera
         if cam_ids is None:
             self._cam_sub1 = rospy.Subscriber(
-                "/gripper_cam/image_raw", Image, self._update_wrist_cam)
+                "/gripper_cam/image_raw", Image, self._update_wrist_cam
+            )
             self._cam_sub2 = rospy.Subscriber(
-                "/third_perp_cam/image_raw", Image, self._update_primary_cam)
+                "/third_perp_cam/image_raw", Image, self._update_primary_cam
+            )
             self._caps = None
         else:
             print("Using camera ids: ", cam_ids)
@@ -55,8 +59,7 @@ class WidowXInterface(ViperXInterface):
             ret, frame = self._caps[0].read()
             # If frame is read correctly ret is True
             if not ret:
-                raise Exception(
-                    "Can't receive frame (stream end?). Exiting ...")
+                raise Exception("Can't receive frame (stream end?). Exiting ...")
             return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     @property
@@ -69,17 +72,16 @@ class WidowXInterface(ViperXInterface):
             ret, frame = self._caps[1].read()
             # If frame is read correctly ret is True
             if not ret:
-                raise Exception(
-                    "Can't receive frame (stream end?). Exiting ...")
+                raise Exception("Can't receive frame (stream end?). Exiting ...")
             return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    def reset(self,
-              reset_pose=True,
-              target_state=np.array(
-                  np.array([0.258325, 0, 0.19065, 0, math.pi/2, 0, 1.0])),
-              go_sleep=False,
-              moving_time=None,
-              ) -> bool:
+    def reset(
+        self,
+        reset_pose=True,
+        target_state=np.array(np.array([0.258325, 0, 0.19065, 0, math.pi / 2, 0, 1.0])),
+        go_sleep=False,
+        moving_time=None,
+    ) -> bool:
         """
         Override function from base class
         Default reset position is home pose, with open gripper
@@ -121,14 +123,15 @@ class WidowXInterface(ViperXInterface):
     def motor_status(self) -> np.ndarray:
         """
         Check if there are any hardware errors
-        
+
         non-zero value means error
 
         API is from:
         https://github.com/Interbotix/interbotix_ros_toolboxes/blob/noetic/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/core.py
         """
         values = self._bot.dxl.robot_get_motor_registers(
-            "group", "all", "Hardware_Error_Status").values
+            "group", "all", "Hardware_Error_Status"
+        ).values
         int_value = np.array(values, dtype=np.uint8)
         assert len(values) == 7, "Expecting 7 joints"
         return int_value
@@ -142,5 +145,6 @@ class WidowXInterface(ViperXInterface):
             - wrist_angle, wrist_rotate, gripper, left_finger, right_finger
         """
         res = self._bot.dxl.robot_reboot_motors(
-            "single", joint_name, enable=True, smart_reboot=True)
+            "single", joint_name, enable=True, smart_reboot=True
+        )
         return res

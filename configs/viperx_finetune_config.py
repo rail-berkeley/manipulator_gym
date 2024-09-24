@@ -22,9 +22,7 @@ def viper_dataset_transform(trajectory: Dict[str, Any]) -> Dict[str, Any]:
     trajectory["observation"]["gripper_state"] = trajectory["observation"]["state"][
         :, -1:
     ]
-    trajectory["language_instruction"] = trajectory[
-        "language_text"
-    ]
+    trajectory["language_instruction"] = trajectory["language_text"]
     print(trajectory["observation"]["image_primary"])
     return trajectory
 

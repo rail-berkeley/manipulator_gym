@@ -35,7 +35,7 @@ This package provides a common gym-like environment for policy to interact with 
 ### Code Snippets
 
 To use the gym env, is quite straightforward. Define it as such:
-  
+
 ```python
 from manipulator_gym.manipulator_env import ManipulatorEnv
 from manipulator_gym.interfaces.base_interface import ManipulatorInterface
@@ -115,7 +115,7 @@ python teleop.py # --ip IP
 
 ### 3. Run a Robot policy
 
-Now, we will replace the `teleop.py` with a robot policy. 
+Now, we will replace the `teleop.py` with a robot policy.
 
 Run the "Robot Server"
 ```bash
@@ -151,7 +151,7 @@ graph LR
 
 ☝️ This is what you expect to see when running the above commands.
 
-However, you would expect that the generalist policy would not work well in the simulation environment as it is not trained on the simulation data. 
+However, you would expect that the generalist policy would not work well in the simulation environment as it is not trained on the simulation data.
 
 ---
 
@@ -192,7 +192,7 @@ ros2 launch interbotix_xsarm_control xsarm_control.launch.py robot_model:=wx250s
 
 2. Run the widowx/viperx server interface
 ```bash
-# choose viperx 
+# choose viperx
 
 # ros1 [cam_ids is the USB camera id]
 python3 manipulator_server.py --widowx --cam_ids 0
@@ -226,7 +226,7 @@ Data is saved as a trajectory per shard. When click on `r`, this will reset the 
 
 (optional) Validate the generated log files by replaying on the robot gym env
 ```bash
-python3 read_rlds.py --show_img --rlds_dir PATH_TO_LOGS  --replay 
+python3 read_rlds.py --show_img --rlds_dir PATH_TO_LOGS  --replay
 ```
 
 ### Octo Finetuning
@@ -302,7 +302,10 @@ Make sure that you are not running the installation in a conda environment. If y
 - If you wish to save the raw teleop data in pkl format, indicate `--log_type pkl` when running the `teleop.py` script
 - This is still in active development. Open issues for wishlist and bugs.
 - If you wish to add new robot interface and new control method, it should be easy by adding new interface in `manipulator_gym/interfaces`. Feel free to open a PR for review.
- - In progress:
+- For remote internet teleop, some useful network tools to use:
+  - Setup a simple VPN service with [tailscale](https://tailscale.com/). Connect with local VPN ip
+  - Setup TCP Tunnel with [ngrok](https://ngrok.com/). run `grok tcp 5556` on server, and client use the tcp ip and port.
+- Potential additions and improvements:
   - More interfaces (e.g. mujoco panda, franka, etc.)
   - More sim envs (e.g. robosuite etc.)
   - create util scripts for wandb eval loggings

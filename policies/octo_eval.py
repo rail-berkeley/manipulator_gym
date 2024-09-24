@@ -26,10 +26,18 @@ np.set_printoptions(precision=2, suppress=True)
 FLAGS = flags.FLAGS
 flags.DEFINE_string("checkpoint_path", None, "Path to Octo checkpoint directory.")
 flags.DEFINE_string("ip", "localhost", "IP address of the robot server.")
+flags.DEFINE_integer("port", 5556, "Port of the manipulator server.")
 flags.DEFINE_bool("show_img", False, "Whether to visualize the images or not.")
-flags.DEFINE_string("text_cond", "put the banana on the plate", "Language prompt for the task.")
+flags.DEFINE_string(
+    "text_cond", "put the banana on the plate", "Language prompt for the task."
+)
 flags.DEFINE_bool("clip_actions", False, "Clip actions to 0.02")
-flags.DEFINE_string("dataset_stats", "bridge_dataset", "Name of dataset, stats to use for normalization.")
+flags.DEFINE_string(
+    "dataset_stats",
+    "bridge_dataset",
+    "Name of dataset, stats to use for normalization.",
+)
+
 
 def main(_):
     # load finetuned model
@@ -58,14 +66,18 @@ def main(_):
     #   }
     ##################################################################################################################
     env = ManipulatorEnv(
-        manipulator_interface=ActionClientInterface(host=FLAGS.ip),
+        manipulator_interface=ActionClientInterface(host=FLAGS.ip, port=FLAGS.port),
         # manipulator_interface=ManipulatorInterface(), # for testing
         state_encoding=StateEncoding.POS_EULER,
         use_wrist_cam=True,
     )
-    env = ClipActionBoxBoundary(env, workspace_boundary=[[0.0, -0.1, -0.5], [0.6, 0.5, 0.5]])
+    env = ClipActionBoxBoundary(
+        env, workspace_boundary=[[0.0, -0.1, -0.5], [0.6, 0.5, 0.5]]
+    )
     env = ConvertState2Proprio(env)
-    env = ResizeObsImageWrapper(env, resize_size={"image_primary": (256, 256), "image_wrist": (128, 128)})
+    env = ResizeObsImageWrapper(
+        env, resize_size={"image_primary": (256, 256), "image_wrist": (128, 128)}
+    )
 
     # # add wrappers for history and "receding horizon control", i.e. action chunking
     env = HistoryWrapper(env, horizon=2)
@@ -94,11 +106,13 @@ def main(_):
 
             # model returns actions of shape [batch, pred_horizon, action_dim] -- remove batch
             actions = model.sample_actions(
-                jax.tree_map(lambda x: x[None], obs), 
+                jax.tree_map(lambda x: x[None], obs),
                 task,
                 # NOTE: we are using bridge_dataset's statistics for default normalization
-                unnormalization_statistics=model.dataset_statistics[FLAGS.dataset_stats]["action"],
-                rng=jax.random.PRNGKey(0)
+                unnormalization_statistics=model.dataset_statistics[
+                    FLAGS.dataset_stats
+                ]["action"],
+                rng=jax.random.PRNGKey(0),
             )
             actions = actions[0]
             print("performing action: ", np.array(actions))
@@ -115,6 +129,7 @@ def main(_):
             episode_return += reward
 
         print(f"Episode return: {episode_return}")
+
 
 if __name__ == "__main__":
     app.run(main)

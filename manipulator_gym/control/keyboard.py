@@ -8,10 +8,11 @@ import numpy as np
 class ControlModule(ABC):
     """
     Abstract class for control module.
-    
+
     This class provides an interface for control module.
     e.g. Keyboard, SpaceMouse, Oculus controller, etc.
     """
+
     @abstractmethod
     def get_action(self) -> Tuple[np.ndarray, Any]:
         raise NotImplementedError
@@ -22,7 +23,6 @@ class ControlModule(ABC):
 
 
 class KeyboardInputControl(ControlModule):
-
     def __init__(self, translation_diff=0.01, rotation_diff=0.01):
         keyboard_listener = keyboard.Listener(
             on_press=self._on_press_fn, on_release=self._on_release_fn
@@ -31,8 +31,8 @@ class KeyboardInputControl(ControlModule):
         self._curr_action = np.zeros(6)
         self.key_map = {
             "w": (0, translation_diff),
-            "a": (1, translation_diff),
             "s": (0, -translation_diff),
+            "a": (1, translation_diff),
             "d": (1, -translation_diff),
             "z": (2, translation_diff),
             "c": (2, -translation_diff),
@@ -76,6 +76,7 @@ class KeyboardInputControl(ControlModule):
 
 if __name__ == "__main__":
     import time
+
     keyboard_input = KeyboardInputControl()
 
     while True:

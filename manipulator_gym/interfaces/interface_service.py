@@ -14,8 +14,14 @@ import cv2
 # These describes the ports and API keys used in the agentlace server
 DefaultActionConfig = ActionConfig(
     port_number=5556,
-    action_keys=["reset", "step_action", "configure",
-                 "move_eef", "move_gripper", "custom_fn"],
+    action_keys=[
+        "reset",
+        "step_action",
+        "configure",
+        "move_eef",
+        "move_gripper",
+        "custom_fn",
+    ],
     observation_keys=["eef_pose", "gripper_state", "primary_img", "wrist_img"],
     broadcast_port=5556 + 1,
 )
@@ -24,11 +30,9 @@ DefaultActionConfig = ActionConfig(
 class ActionClientInterface(ManipulatorInterface):
     """Action Client interface with agentlace."""
 
-    def __init__(self,
-                 host: str = "localhost",
-                 port: int = 5556,
-                 obs_timeout: float = 0.05
-                 ):
+    def __init__(
+        self, host: str = "localhost", port: int = 5556, obs_timeout: float = 0.05
+    ):
         """
         Initialize the action client interface.
         Args:
@@ -99,8 +103,7 @@ class ActionClientInterface(ManipulatorInterface):
         This is a generic method to call any custom function
         in the interface.
         """
-        res = self._client.act("custom_fn",
-                               {"fn_name": fn_name, "kwargs": kwargs})
+        res = self._client.act("custom_fn", {"fn_name": fn_name, "kwargs": kwargs})
         if res and "status" in res and res["status"]:
             return res.get("res_payload", None)
         return res
@@ -119,22 +122,24 @@ class ActionClientInterface(ManipulatorInterface):
 
 ##############################################################################
 
+
 class ManipulatorInterfaceServer:
     """
     Interface Server with runs the interface on the robot with agentlace.
     """
 
-    def __init__(self,
-                 manipulator_interface: ManipulatorInterface,
-                 port: int = 5556,
-                 resize_img: Optional[List[int]] = None
-                 ):
+    def __init__(
+        self,
+        manipulator_interface: ManipulatorInterface,
+        port: int = 5556,
+        resize_img: Optional[List[int]] = None,
+    ):
         """
         Provide the manipulator interface to the server.
         args:
             manipulator_interface: the interface to the robot
             port: the port number to run the server
-            resize_img: resize the img before sending to the client for 
+            resize_img: resize the img before sending to the client for
                         lower data transfer, default is None
         """
         super().__init__()
@@ -201,7 +206,8 @@ class ManipulatorInterfaceServer:
             fn_name = req_payload["fn_name"]
             if hasattr(self._manipulator_interface, fn_name):
                 res_payload = getattr(self._manipulator_interface, fn_name)(
-                    **req_payload["kwargs"])
+                    **req_payload["kwargs"]
+                )
                 return {"status": True, "res_payload": res_payload}
 
             print(f"Method {fn_name} not found in the interface")

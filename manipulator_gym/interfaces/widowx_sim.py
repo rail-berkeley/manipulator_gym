@@ -46,6 +46,8 @@ class WidowXSimInterface:
         urdf_path = asset_path + "/widowx/urdf/wx250.urdf"
         eef_link = "/ee_gripper_link"
         self.arm = p.loadURDF(urdf_path, useFixedBase=True)
+        link_name_to_index = self._find_bullet_link_names(self.arm)
+        self.eef_link_id = link_name_to_index[eef_link]  # link id == 11
 
         for id in [9, 10, 11]:
             p.changeDynamics(self.arm, id, lateralFriction=100)
@@ -71,7 +73,7 @@ class WidowXSimInterface:
             camera_eye_position, camera_target_position, camera_up_vector
         )
         self.cam_proj_matrix = p.computeProjectionMatrixFOV(
-            fov=51.83,   # vertical fov, logitech C920 diagonal fov is 78.0
+            fov=51.83,  # vertical fov, logitech C920 diagonal fov is 78.0
             aspect=image_size[1] / image_size[0],  # width/height
             nearVal=0.01,
             farVal=99.0,
@@ -85,7 +87,7 @@ class WidowXSimInterface:
     def eef_pose(self) -> np.ndarray:
         """return the [x, y, z, rx, ry, rz] of the end effector"""
         # Get proprioceptive information, end-effector [x, y, z, roll, pitch, yaw]
-        current_state = p.getLinkState(self.arm, 11)
+        current_state = p.getLinkState(self.arm, self.eef_link_id)
         pos = current_state[0]
         orn = current_state[1]
         euler = p.getEulerFromQuaternion(orn)
@@ -100,8 +102,8 @@ class WidowXSimInterface:
         """
         grip_joint_indices = [9, 10]
         grip_state = []
-        for i in range(2):
-            grip_state.append(abs(p.getJointState(self.arm, grip_joint_indices[i])[0]))
+        for joint_id in grip_joint_indices:
+            grip_state.append(abs(p.getJointState(self.arm, joint_id)[0]))
         return 1.0 if sum(grip_state) > 0.05 else 0.0
 
     @property
@@ -242,17 +244,36 @@ class WidowXSimInterface:
         """Compute the view matrix for the wrist camera."""
         # Get the current position and orientation of the end effector
         wrist_cam_pose = self.eef_pose
-        rotation_matrix = p.getMatrixFromQuaternion(p.getQuaternionFromEuler(wrist_cam_pose[3:]))
+        rotation_matrix = p.getMatrixFromQuaternion(
+            p.getQuaternionFromEuler(wrist_cam_pose[3:])
+        )
         rotation_matrix = np.array(rotation_matrix).reshape(3, 3)
         camera_eye_position = wrist_cam_pose[:3]  # x, y, z
         # move camera_eye_position 0.1 along the z-axis after rotation
-        camera_eye_position = camera_eye_position + np.dot(rotation_matrix, np.array([0, 0, 0.1]))
+        camera_eye_position = camera_eye_position + np.dot(
+            rotation_matrix, np.array([0, 0, 0.1])
+        )
 
         # get the camera target position 0.1 meters in front of the camera
-        camera_target_position = camera_eye_position + np.dot(rotation_matrix, np.array([1, 0, 0]))
+        camera_target_position = camera_eye_position + np.dot(
+            rotation_matrix, np.array([1, 0, 0])
+        )
         camera_up_vector = np.dot(rotation_matrix, np.array([0, 0, 1]))
         # Compute and return the view matrix
-        return p.computeViewMatrix(camera_eye_position, camera_target_position, camera_up_vector)
+        return p.computeViewMatrix(
+            camera_eye_position, camera_target_position, camera_up_vector
+        )
+
+    def _find_bullet_link_names(self, model_id):
+        """utils to find the link names in pybullet"""
+        _link_name_to_index = {
+            p.getBodyInfo(model_id)[0].decode("UTF-8"): -1,
+        }
+
+        for _id in range(p.getNumJoints(model_id)):
+            _name = p.getJointInfo(model_id, _id)[12].decode("UTF-8")
+            _link_name_to_index[_name] = _id
+        return _link_name_to_index
 
     def __del__(self):
         p.disconnect(self.client)

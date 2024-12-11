@@ -30,7 +30,6 @@ class SpaceMouseControl(ControlModule):
     def register_callback(self, callback):
         raise NotImplementedError
 
-
     def _read_spacemouse(self):
         while True:
             state = pyspacemouse.read()

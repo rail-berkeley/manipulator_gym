@@ -5,6 +5,7 @@ This script to eval OpenVLA model on bridge data robot setup.
 from transformers import AutoModelForVision2Seq, AutoProcessor
 from PIL import Image
 
+import os
 import torch
 import time
 import peft
@@ -18,12 +19,18 @@ from manipulator_gym.utils.gym_wrappers import ClipActionBoxBoundary
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("ip", "localhost", "IP address of the robot server.")
+flags.DEFINE_integer("port", 5556, "Port of the manipulator server.")
 flags.DEFINE_bool("show_img", False, "Whether to visualize the images or not.")
 flags.DEFINE_string(
     "text_cond", "put the banana on the plate", "Language prompt for the task."
 )
 flags.DEFINE_string("lora_adapter_dir", None, "Path to the LORA adapter directory.")
 flags.DEFINE_bool("clip_actions", False, "Clip actions to 0.02")
+flags.DEFINE_string(
+    "dataset_stats",
+    "bridge_orig",
+    "Path to the dataset stats json file, default to brige_orig.",
+)
 # Example lora_adapter_dir: "adapter-tmp/openvla-7b+serl_demos+b4+lr-2e-05+lora-r32+dropout-0.0+q-4bit/"
 
 
@@ -34,10 +41,13 @@ device = "cuda:0"
 
 def main(_):
     env = ManipulatorEnv(
-        manipulator_interface=ActionClientInterface(host=FLAGS.ip),
+        manipulator_interface=ActionClientInterface(host=FLAGS.ip, port=FLAGS.port),
         # manipulator_interface=ManipulatorInterface(), # for testing
     )  # default doesn't use wrist cam
-    env = ClipActionBoxBoundary(env, workspace_boundary=[[0.0, -0.1, -0.5], [0.6, 0.5, 0.5]])
+    # NOTE: using the kitchen sink setup boundary of https://github.com/simpler-env/SimplerEnv
+    env = ClipActionBoxBoundary(
+        env, workspace_boundary=[[0.191, -0.229, 0.3], [0.402, 0.229, 0.08]]
+    )
 
     # Load Processor & VLA
     processor = AutoProcessor.from_pretrained(
@@ -60,6 +70,28 @@ def main(_):
         )  # this merges the adapter into the model for faster inference
     else:
         vla = base_vla
+
+    # Load Dataset Statistics from Disk (if passing a path to a fine-tuned model)
+    unnorm_key = FLAGS.dataset_stats
+    if ".json" in FLAGS.dataset_stats:
+        assert (
+            "dataset_statistics.json" in FLAGS.dataset_stats
+        ), "Please provide the correct dataset statistics file."
+        path = os.path.expanduser(FLAGS.dataset_stats)
+        print(f"Loading custom dataset statistics .json from: {path}")
+        import json
+
+        with open(path, "r") as f:
+            vla.norm_stats = json.load(f)
+
+            # assume only one key in the .json file and gets the key
+            dataset_names = vla.norm_stats.keys()
+            assert (
+                len(dataset_names) == 1
+            ), "Only one dataset name should be in the .json file."
+            unnorm_key = list(dataset_names)[0]
+
+    print(f"Un-normalization key: {unnorm_key}")
 
     # format the prompt
     prompt = f"In: What action should the robot take to {FLAGS.text_cond}?\nOut:"
@@ -85,7 +117,7 @@ def main(_):
 
             # Predict Action (7-DoF; un-normalize for BridgeData V2)
             action = vla.predict_action(
-                **inputs, unnorm_key="bridge_orig", do_sample=False
+                **inputs, unnorm_key=unnorm_key, do_sample=False
             )
             assert (
                 len(action) == 7

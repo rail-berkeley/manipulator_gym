@@ -6,6 +6,52 @@ import logging
 from manipulator_gym.utils.workspace import WorkspaceChecker
 
 
+def print_yellow(x):
+    return print("\033[93m {}\033[00m".format(x))
+
+
+class LimitMotorMaxEffort(gym.Wrapper):
+    """
+    Limit the max effort (torque) of the motors to prevent robot damage and failures.
+    When the torque limit is reached, do not apply actions.
+
+    NOTE: this currently only works on the widowx interface.
+
+    Args:
+    - env: gym environment
+    - interface: the interface to the robot
+    - torque_limits: the torque limits for each joint. (zhouzypaul: usually effort
+        past 1300 is dangerous)
+    """
+
+    def __init__(self, env, interface, max_effort_limit=1300):
+        super().__init__(env)
+        self.interface = interface
+        self.max_effort_limit = max_effort_limit
+        self.null_action = np.zeros(7)  # widowx specific
+
+    def step(self, action):
+        res = self.interface.custom_fn("joint_efforts")
+        if max(res.values()) > self.max_effort_limit:
+            action = self.null_action
+            print_yellow("Warning: Joint effort limit reached. Not applying action.")
+            print_yellow(f"Joint efforts: {res}")
+
+        obs, reward, done, trunc, info = self.env.step(action)
+        info["joint_efforts"] = res
+
+        return obs, reward, done, trunc, info
+
+    def reset(self, **kwargs):
+        obs, info = super().reset(**kwargs)
+        info["joint_efforts"] = self.interface.custom_fn("joint_efforts")
+
+        return obs, info
+
+
+##############################################################################
+
+
 class CheckAndRebootJoints(gym.Wrapper):
     """
     Every step, check whether joints have failed and reboot them if necessary.

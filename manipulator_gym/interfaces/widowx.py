@@ -148,3 +148,45 @@ class WidowXInterface(ViperXInterface):
             "single", joint_name, enable=True, smart_reboot=True
         )
         return res
+
+    def joint_states(self):
+        """
+        Get the joint states (position, velocity, effort) of all Dynamixel motors
+
+        API is from:
+        https://github.com/Interbotix/interbotix_ros_toolboxes/blob/53443a3d915db12d425364b319f90df3db3dddbe/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/core.py#L167-L173
+
+        Returns <class 'sensor_msgs.msg._JointState.JointState'>
+        e.g.
+            header:
+            seq: 265873
+            stamp:
+                secs: 1733509754
+                nsecs: 197535524
+            frame_id: ''
+            name:
+            - waist
+            - shoulder
+            - elbow
+            - forearm_roll
+            - wrist_angle
+            - wrist_rotate
+            - gripper
+            - left_finger
+            - right_finger
+            position: [-0.4218447208404541, -0.40957286953926086, 0.48780590295791626, -0.003067961661145091, 1.529378890991211, -0.42337870597839355, 1.3652429580688477, 0.037534553557634354, -0.037534553557634354]
+            velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            effort: [-2.690000057220459, -32.279998779296875, -433.0899963378906, 45.72999954223633, 0.0, 0.0, 0.0, 0.0, 0.0]
+        """
+        values = self._bot.dxl.robot_get_joint_states()
+        return values
+
+    def joint_efforts(self) -> dict:
+        """
+        Get the joint efforts of all Dynamixel motors
+
+        Returns:
+            dict: joint_name -> effort
+        """
+        values = self.joint_states()
+        return {name: effort for name, effort in zip(values.name, values.effort)}

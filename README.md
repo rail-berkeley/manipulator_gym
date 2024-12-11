@@ -2,8 +2,6 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-> ⚠️ Still in early development, expect breaking changes ⚠️
-
 This package provides a common gym-like environment for policy to interact with a manipulator robot. The environment is based on the `gym` interface, and the robots are defined as `interfaces`. The abstracted robot interfaces is easily swappable, modularized and run distributedly. Common utilities are provided to assist users to run robot policies (e.g. octo) on the robot.
 
 | Manipulator Interfaces                                              | Description                                           |

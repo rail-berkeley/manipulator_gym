@@ -33,9 +33,19 @@ class LimitMotorMaxEffort(gym.Wrapper):
         res = self.interface.custom_fn("joint_efforts")
         if max(res.values()) > self.max_effort_limit:
             action = self.null_action
-        print_yellow("Warning: Joint effort limit reached. Not applying action.")
+            print_yellow("Warning: Joint effort limit reached. Not applying action.")
+            print_yellow(f"Joint efforts: {res}")
         
-        return self.env.step(action)
+        obs, reward, done, trunc, info = self.env.step(action)
+        info['joint_efforts'] = res
+        
+        return obs, reward, done, trunc, info
+
+    def reset(self, **kwargs):
+        obs, info = super().reset(**kwargs)
+        info['joint_efforts'] = self.interface.custom_fn("joint_efforts")
+        
+        return obs, info
 
 ##############################################################################
 

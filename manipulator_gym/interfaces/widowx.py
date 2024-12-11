@@ -152,19 +152,19 @@ class WidowXInterface(ViperXInterface):
     def joint_states(self):
         """
         Get the joint states (position, velocity, effort) of all Dynamixel motors
-        
+
         API is from:
         https://github.com/Interbotix/interbotix_ros_toolboxes/blob/53443a3d915db12d425364b319f90df3db3dddbe/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/core.py#L167-L173
-        
+
         Returns <class 'sensor_msgs.msg._JointState.JointState'>
         e.g.
-            header: 
+            header:
             seq: 265873
-            stamp: 
+            stamp:
                 secs: 1733509754
                 nsecs: 197535524
             frame_id: ''
-            name: 
+            name:
             - waist
             - shoulder
             - elbow
@@ -184,7 +184,7 @@ class WidowXInterface(ViperXInterface):
     def joint_efforts(self) -> dict:
         """
         Get the joint efforts of all Dynamixel motors
-        
+
         Returns:
             dict: joint_name -> effort
         """

@@ -112,7 +112,11 @@ class CheckAndRebootJoints(gym.Wrapper):
         # reset joints on reset
         res = self.interface.custom_fn("motor_status")
         if res is not None:
-            self.env.reset(**{"go_sleep": True})
+            # go sleep if we need to reboot
+            if self.force_reboot_per_episode or any(self.motor_failed) or any(res):
+                self.env.reset(**{"go_sleep": True})
+            else:
+                self.env.reset()
             for i, status in enumerate(res):
                 # soemtime the status here is unreliable, so reboot all joints if previous failure
                 if (

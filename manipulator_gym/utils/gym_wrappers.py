@@ -10,6 +10,37 @@ def print_yellow(x):
     return print("\033[93m {}\033[00m".format(x))
 
 
+class TrackTorqueStatus(gym.Wrapper):
+    """
+    Check the torque status and expose the information in the info dict.
+    
+    NOTE: this currently only works on the widowx interface.
+    
+    Args:
+    - env: gym environment
+    """
+    def __init__(self, env):
+        super().__init__(env)
+    
+    def _add_motor_status(self, info):
+        res = self.manipulator_interface.custom_fn("get_torque_status")
+        info["motor_status"] = res
+        return info
+    
+    def step(self, action):
+        obs, reward, done, trunc, info = self.env.step(action)
+        info = self._add_motor_status(info)
+        return obs, reward, done, trunc, info
+
+    def reset(self, **kwargs):
+        obs, info = super().reset(**kwargs)
+        info = self._add_motor_status(info)
+        return obs, info
+
+
+##############################################################################
+
+
 class LimitMotorMaxEffort(gym.Wrapper):
     """
     Limit the max effort (torque) of the motors to prevent robot damage and failures.
@@ -19,7 +50,6 @@ class LimitMotorMaxEffort(gym.Wrapper):
 
     Args:
     - env: gym environment
-    - interface: the interface to the robot
     - torque_limits: the torque limits for each joint. (zhouzypaul: usually effort
         past 1300 is dangerous)
     """
@@ -60,7 +90,6 @@ class CheckAndRebootJoints(gym.Wrapper):
 
     Args:
     - env: gym environment
-    - interface: the interface to the robot
     - check_every_n_steps: check whether the moter ahs failed every n steps, and
         keep track of the failure status. When failed, truncate the episode.
     - force_reboot_per_episode: whether to force reboot all joints on reset.

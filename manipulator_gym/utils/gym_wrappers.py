@@ -13,20 +13,21 @@ def print_yellow(x):
 class TrackTorqueStatus(gym.Wrapper):
     """
     Check the torque status and expose the information in the info dict.
-    
+
     NOTE: this currently only works on the widowx interface.
-    
+
     Args:
     - env: gym environment
     """
+
     def __init__(self, env):
         super().__init__(env)
-    
+
     def _add_motor_status(self, info):
         res = self.manipulator_interface.custom_fn("get_torque_status")
-        info["motor_status"] = res
+        info["torque_status"] = res
         return info
-    
+
     def step(self, action):
         obs, reward, done, trunc, info = self.env.step(action)
         info = self._add_motor_status(info)

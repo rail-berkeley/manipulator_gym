@@ -155,15 +155,17 @@ class WidowXInterface(ViperXInterface):
     def get_torque_status(self):
         """
         Get the torque status of all Dynamixel motors
-        
+
         API is from:
         https://github.com/Interbotix/interbotix_ros_toolboxes/blob/53443a3d915db12d425364b319f90df3db3dddbe/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/core.py#L99
         Potential register values from:
         https://emanual.robotis.com/docs/en/dxl/x/xm430-w350/
-        
+
         Get a list of 7 values, each is either 0 (disabled) or 1 (enabled)
         """
-        values = self._bot.dxl.robot_get_motor_registers("group", "all", "Torque_Enable").values
+        values = self._bot.dxl.robot_get_motor_registers(
+            "group", "all", "Torque_Enable"
+        ).values
         assert len(values) == 7, "Expecting 7 joints"
         values = np.array(values, dtype=np.uint8)
         return values
@@ -171,7 +173,7 @@ class WidowXInterface(ViperXInterface):
     def enable_torque(self, enable: bool = True):
         """
         Enable or disable the torque for all motors. No returns.
-        
+
         API is from:
         https://github.com/Interbotix/interbotix_ros_toolboxes/blob/53443a3d915db12d425364b319f90df3db3dddbe/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/core.py#L115
         """

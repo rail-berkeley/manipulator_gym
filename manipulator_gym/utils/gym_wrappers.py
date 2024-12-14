@@ -24,14 +24,13 @@ class LimitMotorMaxEffort(gym.Wrapper):
         past 1300 is dangerous)
     """
 
-    def __init__(self, env, interface, max_effort_limit=1300):
+    def __init__(self, env, max_effort_limit=1300):
         super().__init__(env)
-        self.interface = interface
         self.max_effort_limit = max_effort_limit
         self.null_action = np.zeros(7)  # widowx specific
 
     def step(self, action):
-        res = self.interface.custom_fn("joint_efforts")
+        res = self.manipulator_interface.custom_fn("joint_efforts")
         if max(res.values()) > self.max_effort_limit:
             action = self.null_action
             print_yellow("Warning: Joint effort limit reached. Not applying action.")
@@ -44,7 +43,7 @@ class LimitMotorMaxEffort(gym.Wrapper):
 
     def reset(self, **kwargs):
         obs, info = super().reset(**kwargs)
-        info["joint_efforts"] = self.interface.custom_fn("joint_efforts")
+        info["joint_efforts"] = self.manipulator_interface.custom_fn("joint_efforts")
 
         return obs, info
 
@@ -70,12 +69,10 @@ class CheckAndRebootJoints(gym.Wrapper):
     def __init__(
         self,
         env,
-        interface,
         check_every_n_steps: int = 1,
         force_reboot_per_episode: bool = False,
     ):
         super().__init__(env)
-        self.interface = interface
         self.widowx_joints = [
             "waist",
             "shoulder",
@@ -92,7 +89,7 @@ class CheckAndRebootJoints(gym.Wrapper):
 
     def step(self, action):
         self.step_number += 1
-        res = self.interface.custom_fn("motor_status")
+        res = self.manipulator_interface.custom_fn("motor_status")
 
         if res is not None and self.step_number % self.every_n_steps == 0:
             for i, status in enumerate(res):
@@ -110,7 +107,7 @@ class CheckAndRebootJoints(gym.Wrapper):
         self.step_number = 0
 
         # reset joints on reset
-        res = self.interface.custom_fn("motor_status")
+        res = self.manipulator_interface.custom_fn("motor_status")
         if res is not None:
             # go sleep if we need to reboot
             if self.force_reboot_per_episode or any(self.motor_failed) or any(res):
@@ -124,7 +121,7 @@ class CheckAndRebootJoints(gym.Wrapper):
                     or any(self.motor_failed)
                     or self.force_reboot_per_episode
                 ):
-                    self.interface.custom_fn(
+                    self.manipulator_interface.custom_fn(
                         "reboot_motor", joint_name=self.widowx_joints[i]
                     )
 

@@ -58,12 +58,11 @@ class LimitMotorMaxEffort(gym.Wrapper):
     def __init__(self, env, max_effort_limit=1300):
         super().__init__(env)
         self.max_effort_limit = max_effort_limit
-        self.null_action = np.zeros(7)  # widowx specific
 
     def step(self, action):
         res = self.manipulator_interface.custom_fn("joint_efforts")
         if max(res.values()) > self.max_effort_limit:
-            action = self.null_action
+            action = np.array([0, 0, 0, 0, 0, 0, action[-1]])  # null action for delta control
             print_yellow("Warning: Joint effort limit reached. Not applying action.")
             print_yellow(f"Joint efforts: {res}")
 
@@ -77,6 +76,33 @@ class LimitMotorMaxEffort(gym.Wrapper):
         info["joint_efforts"] = self.manipulator_interface.custom_fn("joint_efforts")
 
         return obs, info
+
+
+##############################################################################
+
+
+class InHouseImpedanceControl(LimitMotorMaxEffort):
+    """
+    Simple in-house impedance controller for the widowx robots.
+    
+    Compared to LimitMotorMaxEffort, this not only just clip the actions when the
+    joint effort limit is reached, but apply a small action to the reverse direction
+    so that the robot doesn't get stuck at the joint effort limit.
+    """
+    def step(self, action):
+        res = self.manipulator_interface.custom_fn("joint_efforts")
+        if max(res.values()) > self.max_effort_limit:
+            reverse_action = np.concatenate([
+                np.array(action)[:6] * -0.5,  # reverse the action
+                np.array(action)[-1:]  # keep the gripper action
+            ])
+            print_yellow("Warning: Joint effort limit reached. Reversing action...")
+            action = reverse_action
+
+        obs, reward, done, trunc, info = self.env.step(action)
+        info["joint_efforts"] = res
+
+        return obs, reward, done, trunc, info
 
 
 ##############################################################################

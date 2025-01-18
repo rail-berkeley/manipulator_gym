@@ -166,7 +166,11 @@ class WidowXInterface(ViperXInterface):
         values = self._bot.dxl.robot_get_motor_registers(
             "group", "all", "Torque_Enable"
         ).values
-        assert len(values) == 7, "Expecting 7 joints"
+        try:
+            assert len(values) == 7, "Expecting 7 joints"
+        except AssertionError:
+            # ignore this error because sometimes motors fail and return less than 7 values
+            print("Error: ", values)
         values = np.array(values, dtype=np.uint8)
         return values
 

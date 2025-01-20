@@ -134,11 +134,14 @@ class CheckAndRebootJoints(gym.Wrapper):
         env,
         check_every_n_steps: int = 1,
         force_reboot_per_episode: bool = False,
+        reboot_with_sleep_pose: bool = True,
     ):
         super().__init__(env)
         self.step_number = 0
         self.every_n_steps = check_every_n_steps
         self.force_reboot_per_episode = force_reboot_per_episode
+        self.reboot_with_sleep_pose = reboot_with_sleep_pose
+
         self.torque_status = self.manipulator_interface.custom_fn("get_torque_status")
         self.motor_status = self.manipulator_interface.custom_fn("motor_status")
 
@@ -151,11 +154,13 @@ class CheckAndRebootJoints(gym.Wrapper):
                 "motor_status"
             )  # 0 is ok, >0 is error code
 
-            # usually the two error codes should imply that the same motors have failed
-            assert all(
-                (self.motor_status[i] > 0) == (self.torque_status[i] == 0)
-                for i in range(len(self.motor_status))
-            ), (self.motor_status, self.torque_status)
+            # if torque is off, the motor usually have failed
+            # but not necessarily the other way around...
+            for i in range(len(self.torque_status)):
+                if self.torque_status[i] == 0:
+                    assert self.motor_status[i] > 0, (
+                        self.motor_status, self.torque_status
+                    )
 
         obs, reward, done, trunc, info = self.env.step(action)
         if any(self.motor_status) or sum(self.torque_status) < len(self.torque_status):
@@ -194,7 +199,7 @@ class CheckAndRebootJoints(gym.Wrapper):
             print_red("Warning: Motor failure detected. Rebooting motors...")
             assert sum(self.motor_status) > 0  # some motors must have failed
             self.manipulator_interface.custom_fn(
-                "safe_reboot_all_motors", go_sleep=kwargs.get("go_sleep", True)
+                "safe_reboot_all_motors", go_sleep=self.reboot_with_sleep_pose
             )  # default moving time 5
             
             # assert that motor status is now ok
@@ -215,8 +220,6 @@ class CheckAndRebootJoints(gym.Wrapper):
                 )
             assert sum(self.torque_status) == len(self.torque_status)
 
-        null_action = np.array([0, 0, 0, 0, 0, 0, 1.0])  # TODO: not sure we need this anymore
-        self.env.step(null_action)  # need to do this so the reset below is not sudden
         return self.env.reset(**kwargs)
 
 

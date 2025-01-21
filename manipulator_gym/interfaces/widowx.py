@@ -136,7 +136,7 @@ class WidowXInterface(ViperXInterface):
             assert len(values) == 7, "Expecting 7 joints"
         except AssertionError:
             # ignore this error because sometimes joints fail and return less than 7 values
-            print("Error: ", values)
+            print("Error: motor status is", values)
         return int_value
 
     def reboot_motor(self, joint_name: str):
@@ -181,7 +181,7 @@ class WidowXInterface(ViperXInterface):
             assert len(values) == 7, "Expecting 7 joints"
         except AssertionError:
             # ignore this error because sometimes motors fail and return less than 7 values
-            print("Error: ", values)
+            print("Error: torque status is", values)
         values = np.array(values, dtype=np.uint8)
         return values
 

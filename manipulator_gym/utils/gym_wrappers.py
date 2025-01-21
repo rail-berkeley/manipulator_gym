@@ -154,14 +154,6 @@ class CheckAndRebootJoints(gym.Wrapper):
                 "motor_status"
             )  # 0 is ok, >0 is error code
 
-            # if torque is off, the motor usually have failed
-            # but not necessarily the other way around...
-            for i in range(len(self.torque_status)):
-                if self.torque_status[i] == 0:
-                    assert self.motor_status[i] > 0, (
-                        self.motor_status, self.torque_status
-                    )
-
         obs, reward, done, trunc, info = self.env.step(action)
         if any(self.motor_status) or sum(self.torque_status) < len(self.torque_status):
             trunc = True

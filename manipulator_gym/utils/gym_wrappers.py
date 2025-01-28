@@ -88,6 +88,9 @@ class InHouseImpedanceControl(LimitMotorMaxEffort):
     """
     Simple in-house impedance controller for the widowx robots.
     
+    widowx: can we get an impedance controller?
+    zhouzypaul: we have impedance at home.
+    
     Compared to LimitMotorMaxEffort, this not only just clip the actions when the
     joint effort limit is reached, but apply a small action to the reverse direction
     so that the robot doesn't get stuck at the joint effort limit.
@@ -145,14 +148,32 @@ class CheckAndRebootJoints(gym.Wrapper):
         self.torque_status = self.manipulator_interface.custom_fn("get_torque_status")
         self.motor_status = self.manipulator_interface.custom_fn("motor_status")
 
-    def step(self, action):
-        if self.step_number % self.every_n_steps == 0:
+    def get_torque_status(self):
+        # 1 is enabled, 0 is disabled
+        self.torque_status = self.manipulator_interface.custom_fn(
+            "get_torque_status"
+        )
+        while self.torque_status is None:
             self.torque_status = self.manipulator_interface.custom_fn(
                 "get_torque_status"
-            )  # 1 is enabled, 0 is disabled
+            )
+        return self.torque_status
+    
+    def get_motor_status(self):
+        # 0 is ok, >0 is error code
+        self.motor_status = self.manipulator_interface.custom_fn(
+            "motor_status"
+        )
+        while self.motor_status is None:
             self.motor_status = self.manipulator_interface.custom_fn(
                 "motor_status"
-            )  # 0 is ok, >0 is error code
+            )
+        return self.motor_status
+
+    def step(self, action):
+        if self.step_number % self.every_n_steps == 0:
+            self.torque_status = self.get_torque_status()
+            self.motor_status = self.get_motor_status()
 
         obs, reward, done, trunc, info = self.env.step(action)
         if any(self.motor_status) or sum(self.torque_status) < len(self.torque_status):
@@ -195,12 +216,7 @@ class CheckAndRebootJoints(gym.Wrapper):
             )  # default moving time 5
             
             # assert that motor status is now ok
-            self.motor_status = None
-            while self.motor_status is None:
-                # need to wait for reboot to finish
-                self.motor_status = self.manipulator_interface.custom_fn(
-                    "motor_status"
-                )
+            self.motor_status = self.get_motor_status()
             assert sum(self.motor_status) == 0
             
             # assert that torque status is now ok

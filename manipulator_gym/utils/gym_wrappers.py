@@ -61,9 +61,15 @@ class LimitMotorMaxEffort(gym.Wrapper):
     def __init__(self, env, max_effort_limit=1300):
         super().__init__(env)
         self.max_effort_limit = max_effort_limit
+    
+    def _get_joint_efforts(self):
+        res = self.manipulator_interface.custom_fn("joint_efforts")
+        while res is None:
+            res = self.manipulator_interface.custom_fn("joint_efforts")
+        return res
 
     def step(self, action):
-        res = self.manipulator_interface.custom_fn("joint_efforts")
+        res = self._get_joint_efforts()
         if max(res.values()) > self.max_effort_limit:
             action = np.array([0, 0, 0, 0, 0, 0, action[-1]])  # null action for delta control
             print_yellow("Warning: Joint effort limit reached. Not applying action.")
@@ -76,7 +82,7 @@ class LimitMotorMaxEffort(gym.Wrapper):
 
     def reset(self, **kwargs):
         obs, info = super().reset(**kwargs)
-        info["joint_efforts"] = self.manipulator_interface.custom_fn("joint_efforts")
+        info["joint_efforts"] = self._get_joint_efforts()
 
         return obs, info
 
@@ -96,7 +102,7 @@ class InHouseImpedanceControl(LimitMotorMaxEffort):
     so that the robot doesn't get stuck at the joint effort limit.
     """
     def step(self, action):
-        res = self.manipulator_interface.custom_fn("joint_efforts")
+        res = self._get_joint_efforts()
         if max(res.values()) > self.max_effort_limit:
             reverse_action = np.concatenate([
                 np.array(action)[:6] * -0.5,  # reverse the action

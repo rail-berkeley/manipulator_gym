@@ -46,7 +46,7 @@ def main(_):
     )  # default doesn't use wrist cam
     # NOTE: using the kitchen sink setup boundary of https://github.com/simpler-env/SimplerEnv
     env = ClipActionBoxBoundary(
-        env, workspace_boundary=[[0.191, -0.229, 0.3], [0.402, 0.229, 0.08]]
+        env, workspace_boundary=[[-float('inf'), -float('inf'), -float('inf')], [float('inf'), float('inf'), float('inf')]]
     )
 
     # Load Processor & VLA
@@ -100,7 +100,7 @@ def main(_):
     for _ in range(100):
         obs, info = env.reset()
         episode_return = 0.0
-        for i in range(250):
+        for i in range(100):
             start_time = time.time()
 
             image = obs["image_primary"]

@@ -9,6 +9,41 @@ from manipulator_gym.utils.workspace import WorkspaceChecker
 def print_yellow(x):
     return print("\033[93m {}\033[00m".format(x))
 
+def print_red(message):
+    print(f"\033[91m{message}\033[0m")  # red color
+
+
+class TrackTorqueStatus(gym.Wrapper):
+    """
+    Check the torque status and expose the information in the info dict.
+
+    NOTE: this currently only works on the widowx interface.
+
+    Args:
+    - env: gym environment
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+
+    def _add_motor_status(self, info):
+        res = self.manipulator_interface.custom_fn("get_torque_status")
+        info["torque_status"] = res
+        return info
+
+    def step(self, action):
+        obs, reward, done, trunc, info = self.env.step(action)
+        info = self._add_motor_status(info)
+        return obs, reward, done, trunc, info
+
+    def reset(self, **kwargs):
+        obs, info = super().reset(**kwargs)
+        info = self._add_motor_status(info)
+        return obs, info
+
+
+##############################################################################
+
 
 class LimitMotorMaxEffort(gym.Wrapper):
     """
@@ -19,21 +54,24 @@ class LimitMotorMaxEffort(gym.Wrapper):
 
     Args:
     - env: gym environment
-    - interface: the interface to the robot
     - torque_limits: the torque limits for each joint. (zhouzypaul: usually effort
         past 1300 is dangerous)
     """
 
-    def __init__(self, env, interface, max_effort_limit=1300):
+    def __init__(self, env, max_effort_limit=1300):
         super().__init__(env)
-        self.interface = interface
         self.max_effort_limit = max_effort_limit
-        self.null_action = np.zeros(7)  # widowx specific
+    
+    def _get_joint_efforts(self):
+        res = self.manipulator_interface.custom_fn("joint_efforts")
+        while res is None:
+            res = self.manipulator_interface.custom_fn("joint_efforts")
+        return res
 
     def step(self, action):
-        res = self.interface.custom_fn("joint_efforts")
+        res = self._get_joint_efforts()
         if max(res.values()) > self.max_effort_limit:
-            action = self.null_action
+            action = np.array([0, 0, 0, 0, 0, 0, action[-1]])  # null action for delta control
             print_yellow("Warning: Joint effort limit reached. Not applying action.")
             print_yellow(f"Joint efforts: {res}")
 
@@ -44,9 +82,39 @@ class LimitMotorMaxEffort(gym.Wrapper):
 
     def reset(self, **kwargs):
         obs, info = super().reset(**kwargs)
-        info["joint_efforts"] = self.interface.custom_fn("joint_efforts")
+        info["joint_efforts"] = self._get_joint_efforts()
 
         return obs, info
+
+
+##############################################################################
+
+
+class InHouseImpedanceControl(LimitMotorMaxEffort):
+    """
+    Simple in-house impedance controller for the widowx robots.
+    
+    widowx: can we get an impedance controller?
+    zhouzypaul: we have impedance at home.
+    
+    Compared to LimitMotorMaxEffort, this not only just clip the actions when the
+    joint effort limit is reached, but apply a small action to the reverse direction
+    so that the robot doesn't get stuck at the joint effort limit.
+    """
+    def step(self, action):
+        res = self._get_joint_efforts()
+        if max(res.values()) > self.max_effort_limit:
+            reverse_action = np.concatenate([
+                np.array(action)[:6] * -0.5,  # reverse the action
+                np.array(action)[-1:]  # keep the gripper action
+            ])
+            print_yellow("Warning: Joint effort limit reached. Reversing action...")
+            action = reverse_action
+
+        obs, reward, done, trunc, info = self.env.step(action)
+        info["joint_efforts"] = res
+
+        return obs, reward, done, trunc, info
 
 
 ##############################################################################
@@ -55,13 +123,16 @@ class LimitMotorMaxEffort(gym.Wrapper):
 class CheckAndRebootJoints(gym.Wrapper):
     """
     Every step, check whether joints have failed and reboot them if necessary.
-    When joints fail, truncate the episode, and reboot joints on reset.
+    There are two types of failure: motor being torqued off and total motor failure.
+    If the motor is being torqued off, just torque it back on; if total motor failure,
+    we need to reboot the motors (though need to make sure it's in a safe position).
+
+    When joints fail, truncate the episode. On reset, auto torque on / reboot all joints.
 
     NOTE: this currently only works on the widowx interface.
 
     Args:
     - env: gym environment
-    - interface: the interface to the robot
     - check_every_n_steps: check whether the moter ahs failed every n steps, and
         keep track of the failure status. When failed, truncate the episode.
     - force_reboot_per_episode: whether to force reboot all joints on reset.
@@ -70,64 +141,99 @@ class CheckAndRebootJoints(gym.Wrapper):
     def __init__(
         self,
         env,
-        interface,
         check_every_n_steps: int = 1,
         force_reboot_per_episode: bool = False,
+        reboot_with_sleep_pose: bool = True,
     ):
         super().__init__(env)
-        self.interface = interface
-        self.widowx_joints = [
-            "waist",
-            "shoulder",
-            "elbow",
-            "forearm_roll",
-            "wrist_angle",
-            "wrist_rotate",
-            "gripper",
-        ]
         self.step_number = 0
         self.every_n_steps = check_every_n_steps
         self.force_reboot_per_episode = force_reboot_per_episode
-        self.motor_failed = np.zeros_like(self.action_space.sample())
+        self.reboot_with_sleep_pose = reboot_with_sleep_pose
+
+        self.torque_status = self.manipulator_interface.custom_fn("get_torque_status")
+        self.motor_status = self.manipulator_interface.custom_fn("motor_status")
+
+    def get_torque_status(self):
+        # 1 is enabled, 0 is disabled
+        self.torque_status = self.manipulator_interface.custom_fn(
+            "get_torque_status"
+        )
+        while self.torque_status is None:
+            self.torque_status = self.manipulator_interface.custom_fn(
+                "get_torque_status"
+            )
+        return self.torque_status
+    
+    def get_motor_status(self):
+        # 0 is ok, >0 is error code
+        self.motor_status = self.manipulator_interface.custom_fn(
+            "motor_status"
+        )
+        while self.motor_status is None:
+            self.motor_status = self.manipulator_interface.custom_fn(
+                "motor_status"
+            )
+        return self.motor_status
 
     def step(self, action):
-        self.step_number += 1
-        res = self.interface.custom_fn("motor_status")
-
-        if res is not None and self.step_number % self.every_n_steps == 0:
-            for i, status in enumerate(res):
-                if status != 0:
-                    self.motor_failed[i] = status
-                    break
+        if self.step_number % self.every_n_steps == 0:
+            self.torque_status = self.get_torque_status()
+            self.motor_status = self.get_motor_status()
 
         obs, reward, done, trunc, info = self.env.step(action)
-        if any(self.motor_failed):
+        if any(self.motor_status) or sum(self.torque_status) < len(self.torque_status):
             trunc = True
+        
+        self.step_number += 1
 
         return obs, reward, done, trunc, info
 
     def reset(self, **kwargs):
         self.step_number = 0
+        some_joints_failed = any(self.motor_status) or (sum(self.torque_status) < len(self.torque_status))
+        
+        # if no failures, just reset
+        if not some_joints_failed:
+            return self.env.reset(**kwargs)
+        
+        # try to torque on the motors if there's a failure
+        if some_joints_failed:
+            print_red("Warning: Motor failure detected. Torquing on motors...")
+            self.manipulator_interface.custom_fn("enable_torque")
+            self.torque_status = self.manipulator_interface.custom_fn(
+                "get_torque_status"
+            )
+        
+        # check if torque-on is successful
+        if len(self.torque_status) == sum(self.torque_status):
+            # successful
+            need_to_reboot = self.force_reboot_per_episode
+        else:
+            # failed
+            need_to_reboot = True
+        
+        # reboot the motors if necessary
+        if need_to_reboot:
+            print_red("Warning: Motor failure detected. Rebooting motors...")
+            assert sum(self.motor_status) > 0  # some motors must have failed
+            self.manipulator_interface.custom_fn(
+                "safe_reboot_all_motors", go_sleep=self.reboot_with_sleep_pose
+            )  # default moving time 5
+            
+            # assert that motor status is now ok
+            self.motor_status = self.get_motor_status()
+            assert sum(self.motor_status) == 0
+            
+            # assert that torque status is now ok
+            self.torque_status = None
+            while self.torque_status is None:
+                # need to wait for reboot to finish
+                self.torque_status = self.manipulator_interface.custom_fn(
+                    "get_torque_status"
+                )
+            assert sum(self.torque_status) == len(self.torque_status)
 
-        # reset joints on reset
-        res = self.interface.custom_fn("motor_status")
-        if res is not None:
-            self.env.reset(**{"go_sleep": True})
-            for i, status in enumerate(res):
-                # soemtime the status here is unreliable, so reboot all joints if previous failure
-                if (
-                    status != 0
-                    or any(self.motor_failed)
-                    or self.force_reboot_per_episode
-                ):
-                    self.interface.custom_fn(
-                        "reboot_motor", joint_name=self.widowx_joints[i]
-                    )
-
-        self.motor_failed = np.zeros_like(self.action_space.sample())
-
-        null_action = np.zeros(7)
-        self.env.step(null_action)  # need to do this so the reset below is not sudden
         return self.env.reset(**kwargs)
 
 

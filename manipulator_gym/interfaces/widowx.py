@@ -7,7 +7,6 @@ import cv2
 
 from manipulator_gym.utils.utils import rotationMatrixToEulerAngles
 from manipulator_gym.interfaces.viperx import ViperXInterface
-
 from interbotix_xs_modules.arm import InterbotixManipulatorXS
 
 
@@ -133,7 +132,11 @@ class WidowXInterface(ViperXInterface):
             "group", "all", "Hardware_Error_Status"
         ).values
         int_value = np.array(values, dtype=np.uint8)
-        assert len(values) == 7, "Expecting 7 joints"
+        try:
+            assert len(values) == 7, "Expecting 7 joints"
+        except AssertionError:
+            # ignore this error because sometimes joints fail and return less than 7 values
+            print("Error: motor status is", values)
         return int_value
 
     def reboot_motor(self, joint_name: str):
@@ -149,7 +152,50 @@ class WidowXInterface(ViperXInterface):
         )
         return res
 
-    def joint_states(self):
+    def safe_reboot_all_motors(self, go_sleep=True, moving_time=5):
+        """
+        Optionally put the robot to sleep, then reboot all motors.
+        """
+        print("Going to sleep and rebooting all motors...")
+        if go_sleep:
+            self._gripper.open(delay=0.1)
+            self._arm.go_to_sleep_pose(moving_time=moving_time)
+        res = self._bot.dxl.robot_reboot_motors("group", "all", enable=True)
+        return res
+
+    def get_torque_status(self):
+        """
+        Get the torque status of all Dynamixel motors
+
+        API is from:
+        https://github.com/Interbotix/interbotix_ros_toolboxes/blob/53443a3d915db12d425364b319f90df3db3dddbe/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/core.py#L99
+        Potential register values from:
+        https://emanual.robotis.com/docs/en/dxl/x/xm430-w350/
+
+        Get a list of 7 values, each is either 0 (disabled) or 1 (enabled)
+        """
+        values = self._bot.dxl.robot_get_motor_registers(
+            "group", "all", "Torque_Enable"
+        ).values
+        try:
+            assert len(values) == 7, "Expecting 7 joints"
+        except AssertionError:
+            # ignore this error because sometimes motors fail and return less than 7 values
+            print("Error: torque status is", values)
+        values = np.array(values, dtype=np.uint8)
+        return values
+
+    def enable_torque(self, enable: bool = True):
+        """
+        Enable or disable the torque for all motors. No returns.
+
+        API is from:
+        https://github.com/Interbotix/interbotix_ros_toolboxes/blob/53443a3d915db12d425364b319f90df3db3dddbe/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/core.py#L115
+        """
+        print("Enabling torque: ", enable)
+        self._bot.dxl.robot_torque_enable("group", "all", enable)
+
+    def get_joint_status(self):
         """
         Get the joint states (position, velocity, effort) of all Dynamixel motors
 
@@ -188,5 +234,5 @@ class WidowXInterface(ViperXInterface):
         Returns:
             dict: joint_name -> effort
         """
-        values = self.joint_states()
+        values = self.get_joint_status()
         return {name: effort for name, effort in zip(values.name, values.effort)}

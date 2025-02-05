@@ -2,7 +2,7 @@
 This script to eval OpenVLA model on bridge data robot setup.
 """
 from PIL import Image
-
+import threading
 import os
 import time
 import numpy as np
@@ -106,6 +106,7 @@ class OpenVLAPolicy():
         # Construct a callable function to predict actions
         def _call_action_fn(obs_dict, language_instruction):
             image = obs_dict["image_primary"]
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             image_cond = Image.fromarray(image)
 
             prompt = f"In: What action should the robot take to {language_instruction}?\nOut:"
@@ -133,8 +134,9 @@ class OpenVLAPolicy():
         pass
 
 def main(_):
+    interface = ActionClientInterface(host=FLAGS.ip, port=FLAGS.port)
     env = ManipulatorEnv(
-        manipulator_interface=ActionClientInterface(host=FLAGS.ip, port=FLAGS.port),
+        manipulator_interface=interface,
     )  # default doesn't use wrist cam
 
     env = ConvertState2Proprio(env)
@@ -145,6 +147,25 @@ def main(_):
     # Load Processor & VLA
     eval_policy = OpenVLAPolicy(lora_adapter_dir=FLAGS.lora_adapter_dir, dataset_stats_path=FLAGS.dataset_stats)
 
+    def run_continuous_img_primary(manipulator_interface):
+        """Continuously run manipulator_interface.img_primary in a loop."""
+        while True:
+            try:
+                _ = manipulator_interface.primary_img
+            except Exception as e:
+                print(f"Error in continuous img_primary thread: {e}")
+                break
+
+    def start_img_primary_thread(manipulator_interface):
+        """Start a thread that continuously runs img_primary."""
+        img_primary_thread = threading.Thread(
+            target=run_continuous_img_primary,
+            args=(manipulator_interface,),
+            daemon=True  # This ensures the thread will be terminated when the main program exits
+        )
+        img_primary_thread.start()
+        return img_primary_thread
+    img_primary_thread = start_img_primary_thread(interface)
     try:
         # running rollouts
         for _ in range(100):
@@ -154,13 +175,13 @@ def main(_):
             for i in range(250):
                 start_time = time.time()
 
-                img = get_single_img(obs)
+                # if FLAGS.show_img:
+                #     show_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                #     cv2.imshow("image", show_img)
+                #     # capture "r" key and reset
+                #     if cv2.waitKey(10) & 0xFF == ord("r"):
+                #         break
 
-                if FLAGS.show_img:
-                    cv2.imshow("image", img)
-                    # capture "r" key and reset
-                    if cv2.waitKey(10) & 0xFF == ord("r"):
-                        break
                 actions = eval_policy(obs, FLAGS.text_cond)
 
                 print("--- VLA inference took %s seconds ---" % (time.time() - start_time))

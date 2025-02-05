@@ -32,6 +32,9 @@ class WidowXRos2Interface(ManipulatorInterface):
             )  # Initialize the VideoCapture object
         assert len(self._caps) <= 2, "Only 2 cameras are supported"
         self.blocking_control = blocking_control
+        # start persistent image fetching thread to avoid latency issues
+        img_primary_thread = self.start_img_fetch_thread()
+
 
     @property
     def primary_img(self) -> np.ndarray:

@@ -1,6 +1,7 @@
 from enum import Enum
 import numpy as np
 import time
+import threading
 from typing import Optional, Dict
 from abc import ABC, abstractmethod
 
@@ -96,3 +97,25 @@ class ManipulatorInterface(ABC):
     def configure(self, **kwargs) -> bool:
         """Interface to implement any runtime configuration"""
         return True
+
+    def _run_continuous_img_fetch(self):
+        """Continuously run img fetching in a loop."""
+        while True:
+            try:
+                _ = self.primary_img
+                _ = self.wrist_img
+            except Exception as e:
+                print(f"Error in continuous img thread: {e}")
+                break
+
+    def start_img_fetch_thread(self):
+        """Start a thread that continuously runs img fetching."""
+        self.img_thread = threading.Thread(
+            target=self._run_continuous_img_fetch,
+            daemon=True  # This ensures the thread will be terminated when the main program exits
+        )
+        self.img_thread.start()
+        return self.img_thread
+    
+    def __exit__(self):
+        self.img_thread.exit()

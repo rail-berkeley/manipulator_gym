@@ -12,6 +12,7 @@ import peft
 import numpy as np
 from absl import app, flags, logging
 import cv2
+import threading
 
 from manipulator_gym.manipulator_env import ManipulatorEnv
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
@@ -40,8 +41,9 @@ device = "cuda:0"
 
 
 def main(_):
+    interface = ActionClientInterface(host=FLAGS.ip, port=FLAGS.port)
     env = ManipulatorEnv(
-        manipulator_interface=ActionClientInterface(host=FLAGS.ip, port=FLAGS.port),
+        manipulator_interface=interface,
         # manipulator_interface=ManipulatorInterface(), # for testing
     )  # default doesn't use wrist cam
     # NOTE: using the kitchen sink setup boundary of https://github.com/simpler-env/SimplerEnv
@@ -96,6 +98,25 @@ def main(_):
     # format the prompt
     prompt = f"In: What action should the robot take to {FLAGS.text_cond}?\nOut:"
 
+    def run_continuous_img_primary(manipulator_interface):
+        """Continuously run manipulator_interface.img_primary in a loop."""
+        while True:
+            try:
+                _ = manipulator_interface.primary_img
+            except Exception as e:
+                print(f"Error in continuous img_primary thread: {e}")
+                break
+    def start_img_primary_thread(manipulator_interface):
+        """Start a thread that continuously runs img_primary."""
+        img_primary_thread = threading.Thread(
+            target=run_continuous_img_primary,
+            args=(manipulator_interface,),
+            daemon=True  # This ensures the thread will be terminated when the main program exits
+        )
+        img_primary_thread.start()
+        return img_primary_thread
+    img_primary_thread = start_img_primary_thread(interface)
+
     # running rollouts
     for _ in range(100):
         obs, info = env.reset()
@@ -104,7 +125,7 @@ def main(_):
             start_time = time.time()
 
             image = obs["image_primary"]
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # convert to RGB
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)  # convert to RGB
 
             if FLAGS.show_img:
                 cv2.imshow("image", image)

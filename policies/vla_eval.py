@@ -12,7 +12,6 @@ import peft
 import numpy as np
 from absl import app, flags, logging
 import cv2
-import threading
 
 from manipulator_gym.manipulator_env import ManipulatorEnv
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
@@ -102,24 +101,6 @@ def main(_):
     # format the prompt
     prompt = f"In: What action should the robot take to {FLAGS.text_cond}?\nOut:"
     print(prompt)
-    def run_continuous_img_primary(manipulator_interface):
-        """Continuously run manipulator_interface.img_primary in a loop."""
-        while True:
-            try:
-                _ = manipulator_interface.primary_img
-            except Exception as e:
-                print(f"Error in continuous img_primary thread: {e}")
-                break
-    def start_img_primary_thread(manipulator_interface):
-        """Start a thread that continuously runs img_primary."""
-        img_primary_thread = threading.Thread(
-            target=run_continuous_img_primary,
-            args=(manipulator_interface,),
-            daemon=True  # This ensures the thread will be terminated when the main program exits
-        )
-        img_primary_thread.start()
-        return img_primary_thread
-    img_primary_thread = start_img_primary_thread(interface)
 
     # running rollouts
     try:

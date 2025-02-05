@@ -18,7 +18,6 @@ np.set_printoptions(precision=3, suppress=True)
 
 ##############################################################################
 
-
 class ViperXInterface(ManipulatorInterface):
     """
     https://github.com/Interbotix/interbotix_ros_toolboxes/blob/main/interbotix_xs_toolbox/interbotix_xs_modules/src/interbotix_xs_modules/arm.py
@@ -46,6 +45,8 @@ class ViperXInterface(ManipulatorInterface):
         self._side_img = np.array((480, 640, 3), dtype=np.uint8)
         self._wrist_img = np.array((480, 640, 3), dtype=np.uint8)
         self.blocking_control = blocking_control
+        # start persistent image fetching thread to avoid latency issues
+        img_primary_thread = self.start_img_fetch_thread()
 
     @property
     def primary_img(self) -> np.ndarray:

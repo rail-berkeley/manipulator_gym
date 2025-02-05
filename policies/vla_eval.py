@@ -16,7 +16,7 @@ import threading
 
 from manipulator_gym.manipulator_env import ManipulatorEnv
 from manipulator_gym.interfaces.interface_service import ActionClientInterface
-from manipulator_gym.utils.gym_wrappers import ClipActionBoxBoundary
+from manipulator_gym.utils.gym_wrappers import ClipActionBoxBoundary, ConvertState2Proprio, ResizeObsImageWrapper
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("ip", "localhost", "IP address of the robot server.")
@@ -49,6 +49,10 @@ def main(_):
     # NOTE: using the kitchen sink setup boundary of https://github.com/simpler-env/SimplerEnv
     env = ClipActionBoxBoundary(
         env, workspace_boundary=[[-float('inf'), -float('inf'), -float('inf')], [float('inf'), float('inf'), float('inf')]]
+    )
+    env = ConvertState2Proprio(env)
+    env = ResizeObsImageWrapper(
+        env, resize_size={"image_primary": (256, 256)}
     )
 
     # Load Processor & VLA
@@ -97,7 +101,7 @@ def main(_):
 
     # format the prompt
     prompt = f"In: What action should the robot take to {FLAGS.text_cond}?\nOut:"
-
+    print(prompt)
     def run_continuous_img_primary(manipulator_interface):
         """Continuously run manipulator_interface.img_primary in a loop."""
         while True:
@@ -118,48 +122,52 @@ def main(_):
     img_primary_thread = start_img_primary_thread(interface)
 
     # running rollouts
-    for _ in range(100):
-        obs, info = env.reset()
-        episode_return = 0.0
-        for i in range(100):
-            start_time = time.time()
+    try:
+        for _ in range(100):
+            obs, info = env.reset()
+            episode_return = 0.0
+            for i in range(100):
+                start_time = time.time()
 
-            image = obs["image_primary"]
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)  # convert to RGB
+                image = obs["image_primary"]
+                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)  # convert to RGB
 
-            if FLAGS.show_img:
-                cv2.imshow("image", image)
-                # capture "r" key and reset
-                if cv2.waitKey(10) & 0xFF == ord("r"):
+                if FLAGS.show_img:
+                    cv2.imshow("image", image)
+                    # capture "r" key and reset
+                    if cv2.waitKey(10) & 0xFF == ord("r"):
+                        break
+
+                image_cond = Image.fromarray(image)
+                inputs = processor(prompt, image_cond).to(device, dtype=torch.bfloat16)
+
+                # Predict Action (7-DoF; un-normalize for BridgeData V2)
+                action = vla.predict_action(
+                    **inputs, unnorm_key=unnorm_key, do_sample=False
+                )
+                assert (
+                    len(action) == 7
+                ), f"Action size should be in x, y, z, rx, ry, rz, gripper"
+
+                print("--- VLA inference took %s seconds ---" % (time.time() - start_time))
+                print(f" Step {i}: performing action: {action}")
+
+                if FLAGS.clip_actions:
+                    action[:6] = np.clip(action[:6], -0.02, 0.02)
+                    print(f"Clipped action: {action}")
+
+                # step env -- info contains full "chunk" of observations for logging
+                # obs only contains observation for final step of chunk
+                obs, reward, done, trunc, info = env.step(action)
+                episode_return += reward
+
+                if done:
                     break
 
-            image_cond = Image.fromarray(image)
-            inputs = processor(prompt, image_cond).to(device, dtype=torch.bfloat16)
-
-            # Predict Action (7-DoF; un-normalize for BridgeData V2)
-            action = vla.predict_action(
-                **inputs, unnorm_key=unnorm_key, do_sample=False
-            )
-            assert (
-                len(action) == 7
-            ), f"Action size should be in x, y, z, rx, ry, rz, gripper"
-
-            print("--- VLA inference took %s seconds ---" % (time.time() - start_time))
-            print(f" Step {i}: performing action: {action}")
-
-            if FLAGS.clip_actions:
-                action[:6] = np.clip(action[:6], -0.02, 0.02)
-                print(f"Clipped action: {action}")
-
-            # step env -- info contains full "chunk" of observations for logging
-            # obs only contains observation for final step of chunk
-            obs, reward, done, trunc, info = env.step(action)
-            episode_return += reward
-
-            if done:
-                break
-
-        print(f"Episode return: {episode_return}")
+            print(f"Episode return: {episode_return}")
+    except KeyboardInterrupt:
+        env.reset()
+        quit()
 
 
 if __name__ == "__main__":

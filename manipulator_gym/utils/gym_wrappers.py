@@ -302,7 +302,7 @@ class ClipActionMultiBoxBoundary(ClipActionBoxBoundary):
         self,
         env: gym.Env,
         cubloids: List[np.array],
-        rotation_limit: Optional[float] = None,
+        rotation_limit: Optional[List[float]] = None,
         out_of_boundary_penalty: float = 0.0,
     ):
         """

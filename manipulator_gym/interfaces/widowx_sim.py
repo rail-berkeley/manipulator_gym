@@ -106,8 +106,7 @@ class WidowXSimInterface:
             grip_state.append(abs(p.getJointState(self.arm, joint_id)[0]))
         return 1.0 if sum(grip_state) > 0.05 else 0.0
 
-    @property
-    def primary_img(self) -> np.ndarray:
+    def fetch_primary_img(self) -> None:
         """return the image from the camera"""
         # Obtain the camera image
         img_arr = p.getCameraImage(
@@ -121,29 +120,27 @@ class WidowXSimInterface:
         img_arr = img_arr[:, :, :3]
         img_arr = np.array(img_arr, dtype=np.uint8)
         # img_arr = cv2.cvtColor(img_arr, cv2.COLOR_BGR2RGB)
-        return img_arr
+        self._primary_frame = img_arr
 
-    @property
-    def wrist_img(self, return_blank: bool = True) -> Optional[np.ndarray]:
+    def fetch_wrist_img(self, return_blank: bool = True) -> None:
         """
         Return the image from the wrist camera. Default blank image
         """
         if return_blank:
             """default return blank img"""
-            return np.zeros((self.image_size[0], self.image_size[1], 3), dtype=np.uint8)
-
-        # NOTE: experimental feature to use wrist camera
-        img_arr = p.getCameraImage(
-            height=self.image_size[0],
-            width=self.image_size[1],
-            viewMatrix=self._compute_wrist_cam_view_matrix(),
-            projectionMatrix=self.cam_proj_matrix,
-            renderer=p.ER_BULLET_HARDWARE_OPENGL,  # Use hardware acceleration
-        )[2]
-        img_arr = img_arr[:, :, :3]
-        img_arr = np.array(img_arr, dtype=np.uint8)
-        return img_arr
-        # return None
+            self._wrist_frame = np.zeros((self.image_size[0], self.image_size[1], 3), dtype=np.uint8)
+        else:
+            # NOTE: experimental feature to use wrist camera
+            img_arr = p.getCameraImage(
+                height=self.image_size[0],
+                width=self.image_size[1],
+                viewMatrix=self._compute_wrist_cam_view_matrix(),
+                projectionMatrix=self.cam_proj_matrix,
+                renderer=p.ER_BULLET_HARDWARE_OPENGL,  # Use hardware acceleration
+            )[2]
+            img_arr = img_arr[:, :, :3]
+            img_arr = np.array(img_arr, dtype=np.uint8)
+            self._wrist_frame = img_arr
 
     def step_action(self, action: np.ndarray) -> bool:
         """

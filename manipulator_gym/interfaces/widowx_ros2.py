@@ -35,25 +35,22 @@ class WidowXRos2Interface(ManipulatorInterface):
         # start persistent image fetching thread to avoid latency issues
         img_primary_thread = self.start_img_fetch_thread()
 
-
-    @property
-    def primary_img(self) -> np.ndarray:
+    def fetch_primary_img(self) -> None:
         ret, frame = self._caps[0].read()
         # If frame is read correctly ret is True
         if not ret:
             raise Exception("Can't receive frame (stream end?). Exiting ...")
-        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        self._primary_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    @property
-    def wrist_img(self):
+    def fetch_wrist_img(self) -> None:
         if len(self._caps) < 2:
-            return None
-
-        ret, frame = self._caps[1].read()
-        # If frame is read correctly ret is True
-        if not ret:
-            raise Exception("Can't receive frame (stream end?). Exiting ...")
-        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            self._wrist_frame = None
+        else:
+            ret, frame = self._caps[1].read()
+            # If frame is read correctly ret is True
+            if not ret:
+                raise Exception("Can't receive frame (stream end?). Exiting ...")
+            self._wrist_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     @property
     def eef_pose(self) -> np.ndarray:

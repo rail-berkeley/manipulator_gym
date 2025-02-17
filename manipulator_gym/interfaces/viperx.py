@@ -28,6 +28,9 @@ class ViperXInterface(ManipulatorInterface):
       - "/third_perp_cam/image_raw"
 
     else: overload the impl to get the images directly via cv2.VideoCapture
+    In this base implementation, we do not use persistent image fetching via the above.
+    As a result, image frames are the most recently published to the above topics.
+    Slow publish rates may result in latency issues during remote client control.
     """
 
     def __init__(self, init_node=True, blocking_control=True):
@@ -42,19 +45,9 @@ class ViperXInterface(ManipulatorInterface):
         self._cam_sub2 = rospy.Subscriber(
             "/third_perp_cam/image_raw", Image, self._update_primary_cam
         )
-        self._side_img = np.array((480, 640, 3), dtype=np.uint8)
-        self._wrist_img = np.array((480, 640, 3), dtype=np.uint8)
+        self._primary_frame = np.array((480, 640, 3), dtype=np.uint8)
+        self._wrist_frame = np.array((480, 640, 3), dtype=np.uint8)
         self.blocking_control = blocking_control
-        # start persistent image fetching thread to avoid latency issues
-        img_primary_thread = self.start_img_fetch_thread()
-
-    @property
-    def primary_img(self) -> np.ndarray:
-        return self._side_img
-
-    @property
-    def wrist_img(self):
-        return self._wrist_img
 
     @property
     def eef_pose(self) -> np.ndarray:
@@ -138,11 +131,11 @@ class ViperXInterface(ManipulatorInterface):
 
     def _update_primary_cam(self, img_msg):
         # convert img_msg to numpy array
-        self._side_img = convert_img(img_msg)
+        self._primary_frame = convert_img(img_msg)
 
     def _update_wrist_cam(self, img_msg):
         # convert img_msg to numpy array
-        self._wrist_img = convert_img(img_msg)
+        self._wrist_frame = convert_img(img_msg)
 
     def _move_eef_relative(self, dx=0, dy=0, dz=0, drx=0, dry=0, drz=0):
         curr_rpy = rotationMatrixToEulerAngles(self._arm.T_sb[:3, :3])

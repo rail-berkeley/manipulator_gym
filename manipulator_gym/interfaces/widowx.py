@@ -44,39 +44,35 @@ class WidowXInterface(ViperXInterface):
             self._caps = []
             for id in cam_ids:
                 self._caps.append(cv2.VideoCapture(id))
-        self._side_img = np.array((480, 640, 3), dtype=np.uint8)
-        self._wrist_img = np.array((480, 640, 3), dtype=np.uint8)
+        self._primary_frame = np.array((480, 640, 3), dtype=np.uint8)
+        self._wrist_frame = None  # no wrist frame used in this configuration
         self.fetch_primary_img()
+        self.fetch_wrist_img()
         self.blocking_control = blocking_control
         # start persistent image fetching thread to avoid latency issues
         img_primary_thread = self.start_img_fetch_thread()
     
     def fetch_primary_img(self) -> None:
         if self._caps is None:
-            return self._side_img
+            return
         else:
             ret, frame = self._caps[0].read()
             # If frame is read correctly ret is True
             if not ret:
                 raise Exception("Can't receive frame (stream end?). Exiting ...")
-            self.primary_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-    @property
-    def primary_img(self) -> np.ndarray:
-        return self.primary_frame
-
-    @property
-    def wrist_img(self):
+            self._primary_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    
+    def fetch_wrist_img(self) -> None:
         if self._caps is None:
-            return self._wrist_img
+            return
         elif len(self._caps) < 2:  # no idx 1
-            return None
+            self._wrist_frame = None
         else:
             ret, frame = self._caps[1].read()
             # If frame is read correctly ret is True
             if not ret:
                 raise Exception("Can't receive frame (stream end?). Exiting ...")
-            return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            self._wrist_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     def reset(
         self,

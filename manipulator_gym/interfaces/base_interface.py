@@ -32,7 +32,7 @@ class ManipulatorInterface(ABC):
     @property
     def primary_img(self) -> np.ndarray:
         """return the image from the camera"""
-        return np.zeros((256, 256, 3), dtype=np.uint8)
+        return self._primary_frame
 
     @property
     def wrist_img(self) -> Optional[np.ndarray]:
@@ -40,7 +40,7 @@ class ManipulatorInterface(ABC):
         return the image from the wrist camera
         default is None (no wrist camera)
         """
-        return np.zeros((256, 256, 3), dtype=np.uint8)
+        return self._wrist_frame
 
     @property
     def joint_states(self) -> Optional[np.ndarray]:
@@ -98,12 +98,18 @@ class ManipulatorInterface(ABC):
         """Interface to implement any runtime configuration"""
         return True
 
+    def fetch_primary_img(self) -> None:
+        self._primary_frame = np.zeros((256, 256, 3), dtype=np.uint8)
+    
+    def fetch_wrist_img(self) -> None:
+        self._wrist_frame = np.zeros((256, 256, 3), dtype=np.uint8)
+
     def _run_continuous_img_fetch(self):
         """Continuously run img fetching in a loop."""
         while True:
             try:
-                _ = self.primary_img
-                _ = self.wrist_img
+                _ = self.fetch_primary_img()
+                _ = self.fetch_wrist_img()
             except Exception as e:
                 print(f"Error in continuous img thread: {e}")
                 break

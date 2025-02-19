@@ -106,6 +106,18 @@ class WidowXSimInterface:
             grip_state.append(abs(p.getJointState(self.arm, joint_id)[0]))
         return 1.0 if sum(grip_state) > 0.05 else 0.0
 
+    @property
+    def primary_img(self) -> np.ndarray:
+        """return the image from the camera"""
+        return self._primary_frame
+
+    @property
+    def wrist_img(self) -> Optional[np.ndarray]:
+        """
+        return the image from the wrist camera
+        """
+        return self._wrist_frame
+    
     def fetch_primary_img(self) -> None:
         """return the image from the camera"""
         # Obtain the camera image

@@ -1,6 +1,7 @@
 import numpy as np
 import time
 from typing import Optional
+from manipulator_gym.interfaces.base_interface import ManipulatorInterface
 from manipulator_gym.utils.kinematics import KinematicsSolver
 
 import os
@@ -8,7 +9,7 @@ import pybullet as p
 import pybullet_data
 
 
-class WidowXSimInterface:
+class WidowXSimInterface(ManipulatorInterface):
     """
     Defines the base abstract class of WidowX Sim interface. This class
     is used for the gym env to interact with the Widowx sim env.
@@ -38,8 +39,8 @@ class WidowXSimInterface:
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.table = p.loadURDF("table/table.urdf", 0.5, 0.0, -0.63, 0.0, 0.0, 0.0, 1.0)
 
-        # TODO: use the correct path to the asset
-        asset_path = os.path.dirname(os.path.realpath(__file__)) + "/../utils/assets"
+        # Path to the asset folder
+        asset_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "utils", "assets"))
 
         # NOTE: Original URDF is from
         # https://github.com/avisingh599/roboverse/tree/master/roboverse/assets/interbotix_descriptions
@@ -82,6 +83,12 @@ class WidowXSimInterface:
         p.setGravity(0, 0, -10)
         self.move_eef(self.default_pose[:6], reset=True)
         self.move_gripper(self.default_pose[-1], reset=True)
+        
+        # Initialize camera frames
+        self._primary_frame = np.array((480, 640, 3), dtype=np.uint8)
+        self._wrist_frame = None # no wrist frame used in this configuration
+        self.fetch_primary_img()
+        self.fetch_wrist_img()
 
     @property
     def eef_pose(self) -> np.ndarray:

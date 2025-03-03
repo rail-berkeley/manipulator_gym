@@ -201,9 +201,7 @@ class CheckAndRebootJoints(gym.Wrapper):
         if some_joints_failed:
             print_red("Warning: Motor failure detected. Torquing on motors...")
             self.manipulator_interface.custom_fn("enable_torque")
-            self.torque_status = self.manipulator_interface.custom_fn(
-                "get_torque_status"
-            )
+            self.torque_status = self.get_torque_status()
         
         # check if torque-on is successful
         if len(self.torque_status) == sum(self.torque_status):
@@ -226,12 +224,7 @@ class CheckAndRebootJoints(gym.Wrapper):
             assert sum(self.motor_status) == 0
             
             # assert that torque status is now ok
-            self.torque_status = None
-            while self.torque_status is None:
-                # need to wait for reboot to finish
-                self.torque_status = self.manipulator_interface.custom_fn(
-                    "get_torque_status"
-                )
+            self.torque_status = self.get_torque_status()
             assert sum(self.torque_status) == len(self.torque_status)
 
         return self.env.reset(**kwargs)

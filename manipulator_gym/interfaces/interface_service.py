@@ -2,6 +2,7 @@ import numpy as np
 import time
 from typing import Optional, List, Any
 import logging
+from copy import deepcopy
 
 from agentlace.action import ActionClient, ActionServer, ActionConfig
 from agentlace.internal.utils import mat_to_jpeg, jpeg_to_mat
@@ -40,7 +41,9 @@ class ActionClientInterface(ManipulatorInterface):
             port: the port number of the server
             obs_timeout: the timeout for getting the observation
         """
-        _config = DefaultActionConfig
+        # need to copy or else instantiating a second client should change the config...
+        # happens even if the first client is deleted..
+        _config = deepcopy(DefaultActionConfig)
         _config.port_number = port
         _config.broadcast_port = port + 1
         self._client = ActionClient(host, _config)
